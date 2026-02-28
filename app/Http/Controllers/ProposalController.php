@@ -1,0 +1,151 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ActivityLog;
+use App\Models\Company;
+use App\Models\Proposal;
+use App\Models\ProposalStatus;
+use App\Models\Sector;
+use App\Models\User;
+use App\Models\WorkType;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class ProposalController extends Controller
+{
+    public function index(Request $request)
+    {
+        $query = Proposal::with(['company', 'status', 'accountManager', 'sector', 'workType'])
+            ->orderByDesc('year')
+            ->orderByDesc('proposal_number');
+
+        // Filters
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('company', fn($c) => $c->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($statusId = $request->input('status_id')) {
+            $query->where('status_id', $statusId);
+        }
+
+        if ($year = $request->input('year')) {
+            $query->where('year', $year);
+        }
+
+        $proposals = $query->paginate(25)->withQueryString();
+        $statuses  = ProposalStatus::orderBy('name')->get();
+        $years     = Proposal::select('year')->distinct()->orderByDesc('year')->pluck('year');
+
+        return view('proposals.index', compact('proposals', 'statuses', 'years'));
+    }
+
+    public function create()
+    {
+        $companies = Company::where('is_active', 1)->orderBy('name')->get();
+        $statuses  = ProposalStatus::orderBy('name')->get();
+        $sectors   = Sector::orderBy('name')->get();
+        $workTypes = WorkType::orderBy('name')->get();
+        $managers  = User::where('is_active', 1)->orderBy('first_name')->get();
+
+        // Auto-generate next proposal number for current year
+        $year          = now()->year;
+        $lastNumber    = Proposal::where('year', $year)->max('proposal_number') ?? 0;
+        $nextNumber    = $lastNumber + 1;
+
+        return view('proposals.create', compact(
+            'companies', 'statuses', 'sectors', 'workTypes', 'managers', 'year', 'nextNumber'
+        ));
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'year'               => ['required', 'integer', 'min:2000'],
+            'proposal_number'    => ['required', 'integer', 'min:1'],
+            'title'              => ['required', 'string', 'max:255'],
+            'company_id'         => ['nullable', 'exists:companies,id'],
+            'sector_id'          => ['nullable', 'exists:sectors,id'],
+            'work_type_id'       => ['nullable', 'exists:work_types,id'],
+            'account_manager_id' => ['nullable', 'exists:users,id'],
+            'status_id'          => ['required', 'exists:proposal_statuses,id'],
+            'po_number'          => ['nullable', 'string', 'max:100'],
+            'description'        => ['nullable', 'string'],
+            'submitted_date'     => ['nullable', 'date'],
+            'approved_date'      => ['nullable', 'date'],
+            'notes'              => ['nullable', 'string'],
+        ]);
+
+        $data['created_by'] = auth()->id();
+
+        $proposal = Proposal::create($data);
+
+        ActivityLog::record('Created proposal', 'proposals', $proposal->id, $proposal->title);
+
+        return redirect()->route('proposals.show', $proposal)
+            ->with('success', "Proposal {$proposal->ref} created successfully.");
+    }
+
+    public function show(Proposal $proposal)
+    {
+        $proposal->load(['company', 'status', 'sector', 'workType', 'accountManager', 'createdBy', 'project']);
+        return view('proposals.show', compact('proposal'));
+    }
+
+    public function edit(Proposal $proposal)
+    {
+        $companies = Company::where('is_active', 1)->orderBy('name')->get();
+        $statuses  = ProposalStatus::orderBy('name')->get();
+        $sectors   = Sector::orderBy('name')->get();
+        $workTypes = WorkType::orderBy('name')->get();
+        $managers  = User::where('is_active', 1)->orderBy('first_name')->get();
+
+        return view('proposals.edit', compact(
+            'proposal', 'companies', 'statuses', 'sectors', 'workTypes', 'managers'
+        ));
+    }
+
+    public function update(Request $request, Proposal $proposal)
+    {
+        $data = $request->validate([
+            'year'               => ['required', 'integer', 'min:2000'],
+            'proposal_number'    => ['required', 'integer', 'min:1'],
+            'title'              => ['required', 'string', 'max:255'],
+            'company_id'         => ['nullable', 'exists:companies,id'],
+            'sector_id'          => ['nullable', 'exists:sectors,id'],
+            'work_type_id'       => ['nullable', 'exists:work_types,id'],
+            'account_manager_id' => ['nullable', 'exists:users,id'],
+            'status_id'          => ['required', 'exists:proposal_statuses,id'],
+            'po_number'          => ['nullable', 'string', 'max:100'],
+            'description'        => ['nullable', 'string'],
+            'submitted_date'     => ['nullable', 'date'],
+            'approved_date'      => ['nullable', 'date'],
+            'notes'              => ['nullable', 'string'],
+        ]);
+
+        $proposal->update($data);
+
+        ActivityLog::record('Updated proposal', 'proposals', $proposal->id, $proposal->title);
+
+        return redirect()->route('proposals.show', $proposal)
+            ->with('success', "Proposal {$proposal->ref} updated successfully.");
+    }
+
+    public function destroy(Proposal $proposal)
+    {
+        if ($proposal->project()->exists()) {
+            return back()->with('error', 'Cannot delete a proposal that has an associated project.');
+        }
+
+        $ref = $proposal->ref;
+        $proposal->delete();
+
+        ActivityLog::record('Deleted proposal', 'proposals', null, $ref);
+
+        return redirect()->route('proposals.index')
+            ->with('success', "Proposal {$ref} deleted.");
+    }
+}

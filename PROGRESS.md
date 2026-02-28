@@ -72,8 +72,10 @@
 | Auth / Login | ✅ DONE | LoginController.php, KoreAuth.php, login.blade.php |
 | App Layout | ✅ DONE | resources/views/layouts/app.blade.php |
 | Routes | ✅ DONE | routes/web.php |
-| Dashboard | 🔲 Session 3 | DashboardController.php, views/dashboard/ |
-| Proposals | 🔲 Session 3 | ProposalController.php, views/proposals/ |
+| Supporting Models | ✅ DONE | Role, ActivityLog, Timesheet, Proposal, Company, Contact, Project, Task, etc. |
+| Role Middleware | ✅ DONE | RoleMiddleware.php, bootstrap/app.php |
+| Dashboard | ✅ DONE | DashboardController.php, views/dashboard/ (4 views + Chart.js) |
+| Proposals | ✅ DONE | ProposalController.php, views/proposals/ (index, create, edit, show) |
 | Projects | 🔲 Session 4 | ProjectController.php, views/projects/ |
 | Contacts / Companies | 🔲 Session 4 | ContactController.php, views/contacts/ |
 | Timesheet | 🔲 Session 5 | TimesheetController.php, views/timesheet/ |
@@ -86,14 +88,40 @@
 
 ---
 
-## 📋 Session 3 — What To Build Next
+## ✅ Session 3 — 2026-02-28
+**Status: COMPLETE**
 
-Start Session 3 with:
-1. **app/Models/** — Role.php, ActivityLog.php, Timesheet.php stubs (needed for relationships)
-2. **DashboardController.php** — Employee + Business + Financial + KPI views
-3. **resources/views/dashboard/** — employee.blade.php, business.blade.php, financial.blade.php, kpi.blade.php
-4. **ProposalController.php** + proposal views (index, create, edit, show)
-5. **app/Models/Proposal.php**
+#### Completed
+- [x] app/Models/Role.php
+- [x] app/Models/ActivityLog.php (with static record() helper)
+- [x] app/Models/Timesheet.php + TimesheetPeriod.php + TimesheetEntry.php
+- [x] app/Models/TimeOffRequest.php + PtoPolicy.php + TaskAssignment.php
+- [x] app/Models/Company.php + Contact.php + ContactType.php + Sector.php + Region.php
+- [x] app/Models/Proposal.php + ProposalStatus.php + WorkType.php
+- [x] app/Models/Project.php + ProjectType.php + ProjectStatus.php
+- [x] app/Models/Deliverable.php + Milestone.php + Task.php
+- [x] app/Http/Middleware/RoleMiddleware.php
+- [x] bootstrap/app.php (Laravel 11 app config + middleware aliases)
+- [x] app/Http/Controllers/DashboardController.php (employee, business, financial, kpi, chartData)
+- [x] resources/views/dashboard/employee.blade.php
+- [x] resources/views/dashboard/business.blade.php (with Chart.js doughnut + bar)
+- [x] resources/views/dashboard/financial.blade.php (with Chart.js bar + revenue breakdown)
+- [x] resources/views/dashboard/kpi.blade.php (with Chart.js + progress bars)
+- [x] app/Http/Controllers/ProposalController.php (full CRUD with validation + activity logging)
+- [x] resources/views/proposals/index.blade.php (filterable paginated table)
+- [x] resources/views/proposals/create.blade.php
+- [x] resources/views/proposals/edit.blade.php
+- [x] resources/views/proposals/show.blade.php
+
+---
+
+## 📋 Session 4 — What To Build Next
+
+Start Session 4 with:
+1. **ProjectController.php** — full CRUD + deliverable/milestone/task management
+2. **resources/views/projects/** — index, create, edit, show, deliverables
+3. **ContactController.php + CompanyController.php**
+4. **resources/views/contacts/** and **resources/views/companies/**
 
 ---
 
@@ -147,4 +175,4 @@ kore-erp/
 
 ---
 
-*Last updated: Session 2 — 2026-02-20*
+*Last updated: Session 3 — 2026-02-28*

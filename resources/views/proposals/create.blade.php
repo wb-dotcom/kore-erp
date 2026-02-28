@@ -1,0 +1,162 @@
+@extends('layouts.app')
+
+@section('content')
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ route('proposals.index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h4 class="mb-0 fw-700" style="font-size:1rem;">New Proposal</h4>
+        <div style="font-size:0.72rem; color:#6b7280;">Auto-reference: P{{ $year }}-{{ str_pad($nextNumber, 3, '0', STR_PAD_LEFT) }}</div>
+    </div>
+</div>
+
+<form action="{{ route('proposals.store') }}" method="POST">
+@csrf
+
+<div class="row g-4">
+
+    {{-- Main Details --}}
+    <div class="col-lg-8">
+        <div class="kore-card">
+            <div class="kore-card-header">
+                <h5>Proposal Details</h5>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-sm-3">
+                    <label class="form-label required">Year</label>
+                    <input type="number" name="year" class="form-control form-control-sm @error('year') is-invalid @enderror"
+                        value="{{ old('year', $year) }}" min="2000" max="2099" required>
+                    @error('year')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-sm-3">
+                    <label class="form-label required">Proposal #</label>
+                    <input type="number" name="proposal_number" class="form-control form-control-sm @error('proposal_number') is-invalid @enderror"
+                        value="{{ old('proposal_number', $nextNumber) }}" min="1" required>
+                    @error('proposal_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">PO Number</label>
+                    <input type="text" name="po_number" class="form-control form-control-sm"
+                        value="{{ old('po_number') }}" placeholder="Client PO #">
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label required">Title</label>
+                    <input type="text" name="title" class="form-control form-control-sm @error('title') is-invalid @enderror"
+                        value="{{ old('title') }}" placeholder="Proposal title..." required>
+                    @error('title')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Client Company</label>
+                    <select name="company_id" class="form-select form-select-sm">
+                        <option value="">— Select Company —</option>
+                        @foreach($companies as $c)
+                        <option value="{{ $c->id }}" {{ old('company_id') == $c->id ? 'selected' : '' }}>
+                            {{ $c->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label required">Status</label>
+                    <select name="status_id" class="form-select form-select-sm @error('status_id') is-invalid @enderror" required>
+                        <option value="">— Select Status —</option>
+                        @foreach($statuses as $s)
+                        <option value="{{ $s->id }}" {{ old('status_id') == $s->id ? 'selected' : '' }}>
+                            {{ $s->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                    @error('status_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Sector</label>
+                    <select name="sector_id" class="form-select form-select-sm">
+                        <option value="">— Select Sector —</option>
+                        @foreach($sectors as $s)
+                        <option value="{{ $s->id }}" {{ old('sector_id') == $s->id ? 'selected' : '' }}>
+                            {{ $s->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Work Type</label>
+                    <select name="work_type_id" class="form-select form-select-sm">
+                        <option value="">— Select Work Type —</option>
+                        @foreach($workTypes as $w)
+                        <option value="{{ $w->id }}" {{ old('work_type_id') == $w->id ? 'selected' : '' }}>
+                            {{ $w->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Account Manager</label>
+                    <select name="account_manager_id" class="form-select form-select-sm">
+                        <option value="">— Select Manager —</option>
+                        @foreach($managers as $m)
+                        <option value="{{ $m->id }}" {{ old('account_manager_id') == $m->id ? 'selected' : '' }}>
+                            {{ $m->full_name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Submitted Date</label>
+                    <input type="date" name="submitted_date" class="form-control form-control-sm"
+                        value="{{ old('submitted_date') }}">
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Approved Date</label>
+                    <input type="date" name="approved_date" class="form-control form-control-sm"
+                        value="{{ old('approved_date') }}">
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control form-control-sm" rows="4"
+                        placeholder="Scope, objectives, deliverables...">{{ old('description') }}</textarea>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Internal Notes</label>
+                    <textarea name="notes" class="form-control form-control-sm" rows="3"
+                        placeholder="Internal notes only...">{{ old('notes') }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Sidebar --}}
+    <div class="col-lg-4">
+        <div class="kore-card">
+            <div class="kore-card-header"><h5>Actions</h5></div>
+            <button type="submit" class="btn btn-primary w-100 mb-2">
+                <i class="bi bi-check-lg me-1"></i> Create Proposal
+            </button>
+            <a href="{{ route('proposals.index') }}" class="btn btn-outline-secondary w-100">Cancel</a>
+        </div>
+    </div>
+
+</div>
+</form>
+
+@push('styles')
+<style>
+.form-label { font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #374151; }
+.form-label.required::after { content: ' *'; color: #ef4444; }
+</style>
+@endpush
+
+@endsection
