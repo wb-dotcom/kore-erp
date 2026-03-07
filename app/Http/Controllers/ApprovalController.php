@@ -7,6 +7,7 @@ use App\Models\Approval;
 use App\Models\ExpenseRequest;
 use App\Models\TimeOffRequest;
 use App\Models\Timesheet;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ApprovalController extends Controller
@@ -14,10 +15,11 @@ class ApprovalController extends Controller
     public function index()
     {
         $pendingTimesheets = Timesheet::where('status', 'submitted')->count();
-        $pendingTimeOff    = TimeOffRequest::where('status', 'pending')->count();
+        $pendingTimeOff    = TimeOffRequest::where('status', 'pending')->where('type', '!=', 'remote_work')->count();
+        $pendingRemoteWork = TimeOffRequest::where('status', 'pending')->where('type', 'remote_work')->count();
         $pendingExpenses   = ExpenseRequest::where('status', 'pending')->count();
 
-        return view('approvals.index', compact('pendingTimesheets', 'pendingTimeOff', 'pendingExpenses'));
+        return view('approvals.index', compact('pendingTimesheets', 'pendingTimeOff', 'pendingRemoteWork', 'pendingExpenses'));
     }
 
     public function timesheets(Request $request)
@@ -56,6 +58,19 @@ class ApprovalController extends Controller
         $expenses = $query->paginate(25)->withQueryString();
 
         return view('approvals.expenses', compact('expenses'));
+    }
+
+    public function remoteWork(Request $request)
+    {
+        // Remote work requests use the time_off_requests table with type='remote_work'
+        $query = TimeOffRequest::with('user')
+            ->where('status', 'pending')
+            ->where('type', 'remote_work')
+            ->orderBy('created_at');
+
+        $requests = $query->paginate(25)->withQueryString();
+
+        return view('approvals.remote-work', compact('requests'));
     }
 
     public function approve(Request $request, string $type, int $id)
