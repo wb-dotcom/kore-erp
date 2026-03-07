@@ -78,8 +78,8 @@
 | Proposals | ✅ DONE | ProposalController.php, views/proposals/ (index, create, edit, show) |
 | Projects | ✅ DONE | ProjectController.php, views/projects/ (index, create, edit, show, deliverables) |
 | Contacts / Companies | ✅ DONE | ContactController.php, CompanyController.php, views/contacts/, views/companies/ |
-| Timesheet | 🔲 Session 5 | TimesheetController.php, views/timesheet/ |
-| My Tasks | 🔲 Session 5 | TaskController.php, views/tasks/ |
+| Timesheet | ✅ DONE | TimesheetController.php, views/timesheet/ (weekly grid + history) |
+| My Tasks | ✅ DONE | TaskController.php, views/tasks/index.blade.php |
 | Approval Center | 🔲 Session 6 | ApprovalController.php, views/approvals/ |
 | Project Schedule | 🔲 Session 6 | ScheduleController.php, views/schedule/ |
 | Invoicing | 🔲 Session 7 | InvoiceController.php, views/invoicing/ |
@@ -138,13 +138,25 @@
 
 ---
 
-## 📋 Session 5 — What To Build Next
+## ✅ Session 5 — 2026-03-07
+**Status: COMPLETE**
 
-Start Session 5 with:
-1. **TimesheetController.php** — weekly timesheet entry, submit for approval, history view
-2. **resources/views/timesheet/** — index (weekly grid), history
-3. **TaskController.php** — "My Tasks" view, update assignment status
-4. **resources/views/tasks/** — my tasks list with status/priority filters
+#### Completed
+- [x] app/Http/Controllers/TimesheetController.php (index, saveEntry AJAX upsert, submit, history)
+- [x] resources/views/timesheet/index.blade.php (weekly grid: project rows × day columns, auto-save AJAX, add project row, submit button)
+- [x] resources/views/timesheet/history.blade.php (paginated history with status badges)
+- [x] app/Http/Controllers/TaskController.php (myTasks, updateAssignment)
+- [x] resources/views/tasks/index.blade.php (stats strip, filter by status/project, click-to-cycle icon, quick dropdown, AJAX status update)
+
+---
+
+## 📋 Session 6 — What To Build Next
+
+Start Session 6 with:
+1. **ApprovalController.php** — index (pending counts), timesheets, time-off, expenses tabs; approve/reject actions
+2. **resources/views/approvals/** — index, timesheets, time-off, expenses views
+3. **ScheduleController.php** — project schedule (Gantt data), employee schedule, resources dashboard
+4. **resources/views/schedule/** — project-schedule view with FullCalendar.js Gantt
 
 ---
 
