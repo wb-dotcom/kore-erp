@@ -76,8 +76,8 @@
 | Role Middleware | ✅ DONE | RoleMiddleware.php, bootstrap/app.php |
 | Dashboard | ✅ DONE | DashboardController.php, views/dashboard/ (4 views + Chart.js) |
 | Proposals | ✅ DONE | ProposalController.php, views/proposals/ (index, create, edit, show) |
-| Projects | 🔲 Session 4 | ProjectController.php, views/projects/ |
-| Contacts / Companies | 🔲 Session 4 | ContactController.php, views/contacts/ |
+| Projects | ✅ DONE | ProjectController.php, views/projects/ (index, create, edit, show, deliverables) |
+| Contacts / Companies | ✅ DONE | ContactController.php, CompanyController.php, views/contacts/, views/companies/ |
 | Timesheet | 🔲 Session 5 | TimesheetController.php, views/timesheet/ |
 | My Tasks | 🔲 Session 5 | TaskController.php, views/tasks/ |
 | Approval Center | 🔲 Session 6 | ApprovalController.php, views/approvals/ |
@@ -115,13 +115,36 @@
 
 ---
 
-## 📋 Session 4 — What To Build Next
+## ✅ Session 4 — 2026-03-07
+**Status: COMPLETE**
 
-Start Session 4 with:
-1. **ProjectController.php** — full CRUD + deliverable/milestone/task management
-2. **resources/views/projects/** — index, create, edit, show, deliverables
-3. **ContactController.php + CompanyController.php**
-4. **resources/views/contacts/** and **resources/views/companies/**
+#### Completed
+- [x] app/Http/Controllers/ProjectController.php (full CRUD + deliverables/milestones/tasks + AJAX endpoints)
+- [x] resources/views/projects/index.blade.php (filterable paginated table by status/manager/year)
+- [x] resources/views/projects/create.blade.php
+- [x] resources/views/projects/edit.blade.php
+- [x] resources/views/projects/show.blade.php (task completion stats, WBS preview)
+- [x] resources/views/projects/deliverables.blade.php (inline add deliverable/milestone/task, quick status change)
+- [x] app/Http/Controllers/ContactController.php (full CRUD with activity logging)
+- [x] app/Http/Controllers/CompanyController.php (full CRUD, guard against deleting linked companies)
+- [x] resources/views/contacts/index.blade.php (search + type + company + active filters)
+- [x] resources/views/contacts/create.blade.php
+- [x] resources/views/contacts/edit.blade.php
+- [x] resources/views/contacts/show.blade.php (with linked projects + proposals)
+- [x] resources/views/companies/index.blade.php (search + sector + region + active filters, shows counts)
+- [x] resources/views/companies/create.blade.php (details + full address section)
+- [x] resources/views/companies/edit.blade.php
+- [x] resources/views/companies/show.blade.php (contacts table, projects, proposals all in one view)
+
+---
+
+## 📋 Session 5 — What To Build Next
+
+Start Session 5 with:
+1. **TimesheetController.php** — weekly timesheet entry, submit for approval, history view
+2. **resources/views/timesheet/** — index (weekly grid), history
+3. **TaskController.php** — "My Tasks" view, update assignment status
+4. **resources/views/tasks/** — my tasks list with status/priority filters
 
 ---
 
