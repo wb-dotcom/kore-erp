@@ -37,10 +37,10 @@ ask() {
     local label="$1" default="${2:-}" secret="${3:-}"
     local prompt="  ${BOLD}${label}${NC}"
     [[ -n "$default" ]] && prompt+=" ${GRAY}[${default}]${NC}"
-    printf "${prompt}: "
+    printf "${prompt}: " >&2
     local val
     if [[ "$secret" == "secret" ]]; then
-        read -rs val; echo
+        read -rs val; echo >&2
     else
         read -r val
     fi
@@ -51,7 +51,7 @@ ask() {
 ask_yn() {
     local question="$1" default="${2:-y}"
     local hint; [[ "$default" == "y" ]] && hint="Y/n" || hint="y/N"
-    printf "  ${BOLD}${question}${NC} ${GRAY}[${hint}]${NC}: "
+    printf "  ${BOLD}${question}${NC} ${GRAY}[${hint}]${NC}: " >&2
     local ans; read -r ans
     [[ -z "$ans" ]] && ans="$default"
     [[ "$ans" =~ ^[Yy] ]]
