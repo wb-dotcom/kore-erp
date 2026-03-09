@@ -72,28 +72,163 @@
 | Auth / Login | ✅ DONE | LoginController.php, KoreAuth.php, login.blade.php |
 | App Layout | ✅ DONE | resources/views/layouts/app.blade.php |
 | Routes | ✅ DONE | routes/web.php |
-| Dashboard | 🔲 Session 3 | DashboardController.php, views/dashboard/ |
-| Proposals | 🔲 Session 3 | ProposalController.php, views/proposals/ |
-| Projects | 🔲 Session 4 | ProjectController.php, views/projects/ |
-| Contacts / Companies | 🔲 Session 4 | ContactController.php, views/contacts/ |
-| Timesheet | 🔲 Session 5 | TimesheetController.php, views/timesheet/ |
-| My Tasks | 🔲 Session 5 | TaskController.php, views/tasks/ |
-| Approval Center | 🔲 Session 6 | ApprovalController.php, views/approvals/ |
-| Project Schedule | 🔲 Session 6 | ScheduleController.php, views/schedule/ |
-| Invoicing | 🔲 Session 7 | InvoiceController.php, views/invoicing/ |
-| Administration | 🔲 Session 8 | AdminController.php, views/admin/ |
-| User Management | 🔲 Session 8 | UserController.php, views/admin/users/ |
+| Supporting Models | ✅ DONE | Role, ActivityLog, Timesheet, Proposal, Company, Contact, Project, Task, etc. |
+| Role Middleware | ✅ DONE | RoleMiddleware.php, bootstrap/app.php |
+| Dashboard | ✅ DONE | DashboardController.php, views/dashboard/ (4 views + Chart.js) |
+| Proposals | ✅ DONE | ProposalController.php, views/proposals/ (index, create, edit, show) |
+| Projects | ✅ DONE | ProjectController.php, views/projects/ (index, create, edit, show, deliverables) |
+| Contacts / Companies | ✅ DONE | ContactController.php, CompanyController.php, views/contacts/, views/companies/ |
+| Timesheet | ✅ DONE | TimesheetController.php, views/timesheet/ (weekly grid + history) |
+| My Tasks | ✅ DONE | TaskController.php, views/tasks/index.blade.php |
+| Approval Center | ✅ DONE | ApprovalController.php, views/approvals/ |
+| Project Schedule | ✅ DONE | ScheduleController.php, views/schedule/ |
+| Invoicing | ✅ DONE | InvoiceController.php, views/invoices/ |
+| Administration | ✅ DONE | AdminController.php, views/admin/ |
+| User Management | ✅ DONE | UserController.php, views/admin/users/ |
+| Calendar / Events | ✅ DONE | CalendarController.php, views/calendar/ |
+| Lookup Tables | ✅ DONE | Sector/Region/WorkType/ContactType/Holiday |
 
 ---
 
-## 📋 Session 3 — What To Build Next
+## ✅ Session 3 — 2026-02-28
+**Status: COMPLETE**
 
-Start Session 3 with:
-1. **app/Models/** — Role.php, ActivityLog.php, Timesheet.php stubs (needed for relationships)
-2. **DashboardController.php** — Employee + Business + Financial + KPI views
-3. **resources/views/dashboard/** — employee.blade.php, business.blade.php, financial.blade.php, kpi.blade.php
-4. **ProposalController.php** + proposal views (index, create, edit, show)
-5. **app/Models/Proposal.php**
+#### Completed
+- [x] app/Models/Role.php
+- [x] app/Models/ActivityLog.php (with static record() helper)
+- [x] app/Models/Timesheet.php + TimesheetPeriod.php + TimesheetEntry.php
+- [x] app/Models/TimeOffRequest.php + PtoPolicy.php + TaskAssignment.php
+- [x] app/Models/Company.php + Contact.php + ContactType.php + Sector.php + Region.php
+- [x] app/Models/Proposal.php + ProposalStatus.php + WorkType.php
+- [x] app/Models/Project.php + ProjectType.php + ProjectStatus.php
+- [x] app/Models/Deliverable.php + Milestone.php + Task.php
+- [x] app/Http/Middleware/RoleMiddleware.php
+- [x] bootstrap/app.php (Laravel 11 app config + middleware aliases)
+- [x] app/Http/Controllers/DashboardController.php (employee, business, financial, kpi, chartData)
+- [x] resources/views/dashboard/employee.blade.php
+- [x] resources/views/dashboard/business.blade.php (with Chart.js doughnut + bar)
+- [x] resources/views/dashboard/financial.blade.php (with Chart.js bar + revenue breakdown)
+- [x] resources/views/dashboard/kpi.blade.php (with Chart.js + progress bars)
+- [x] app/Http/Controllers/ProposalController.php (full CRUD with validation + activity logging)
+- [x] resources/views/proposals/index.blade.php (filterable paginated table)
+- [x] resources/views/proposals/create.blade.php
+- [x] resources/views/proposals/edit.blade.php
+- [x] resources/views/proposals/show.blade.php
+
+---
+
+## ✅ Session 4 — 2026-03-07
+**Status: COMPLETE**
+
+#### Completed
+- [x] app/Http/Controllers/ProjectController.php (full CRUD + deliverables/milestones/tasks + AJAX endpoints)
+- [x] resources/views/projects/index.blade.php (filterable paginated table by status/manager/year)
+- [x] resources/views/projects/create.blade.php
+- [x] resources/views/projects/edit.blade.php
+- [x] resources/views/projects/show.blade.php (task completion stats, WBS preview)
+- [x] resources/views/projects/deliverables.blade.php (inline add deliverable/milestone/task, quick status change)
+- [x] app/Http/Controllers/ContactController.php (full CRUD with activity logging)
+- [x] app/Http/Controllers/CompanyController.php (full CRUD, guard against deleting linked companies)
+- [x] resources/views/contacts/index.blade.php (search + type + company + active filters)
+- [x] resources/views/contacts/create.blade.php
+- [x] resources/views/contacts/edit.blade.php
+- [x] resources/views/contacts/show.blade.php (with linked projects + proposals)
+- [x] resources/views/companies/index.blade.php (search + sector + region + active filters, shows counts)
+- [x] resources/views/companies/create.blade.php (details + full address section)
+- [x] resources/views/companies/edit.blade.php
+- [x] resources/views/companies/show.blade.php (contacts table, projects, proposals all in one view)
+
+---
+
+## ✅ Session 5 — 2026-03-07
+**Status: COMPLETE**
+
+#### Completed
+- [x] app/Http/Controllers/TimesheetController.php (index, saveEntry AJAX upsert, submit, history)
+- [x] resources/views/timesheet/index.blade.php (weekly grid: project rows × day columns, auto-save AJAX, add project row, submit button)
+- [x] resources/views/timesheet/history.blade.php (paginated history with status badges)
+- [x] app/Http/Controllers/TaskController.php (myTasks, updateAssignment)
+- [x] resources/views/tasks/index.blade.php (stats strip, filter by status/project, click-to-cycle icon, quick dropdown, AJAX status update)
+
+---
+
+## ✅ Session 6 — 2026-03-07
+**Status: COMPLETE**
+
+#### Completed
+- [x] app/Models/Invoice.php (recalculate(), isOverdue(), getBalanceAttribute())
+- [x] app/Models/InvoiceItem.php
+- [x] app/Models/Approval.php
+- [x] app/Models/ApprovalSetting.php
+- [x] app/Models/ExpenseRequest.php
+- [x] app/Models/Holiday.php
+- [x] app/Models/SystemSetting.php (get()/set() with Cache)
+- [x] app/Models/CalendarEvent.php
+- [x] app/Http/Controllers/ApprovalController.php (index, timesheets, timeOff, expenses, approve, reject)
+- [x] resources/views/approvals/index.blade.php (3 stat cards)
+- [x] resources/views/approvals/timesheets.blade.php
+- [x] resources/views/approvals/time-off.blade.php
+- [x] resources/views/approvals/expenses.blade.php
+- [x] resources/views/approvals/_reject-modal.blade.php (shared modal)
+- [x] app/Http/Controllers/ScheduleController.php (projectSchedule, employeeSchedule, resourcesDashboard, ganttData JSON)
+- [x] resources/views/schedule/project.blade.php (div-based Gantt bars)
+- [x] resources/views/schedule/employee.blade.php
+- [x] resources/views/schedule/resources.blade.php (workload progress bars)
+- [x] app/Http/Controllers/InvoiceController.php (CRUD, PDF, send email, mark paid)
+- [x] resources/views/invoices/index.blade.php
+- [x] resources/views/invoices/create.blade.php (live line-item totals JS)
+- [x] resources/views/invoices/edit.blade.php
+- [x] resources/views/invoices/show.blade.php
+- [x] resources/views/invoices/pdf.blade.php (standalone DomPDF template)
+- [x] app/Http/Controllers/AdminController.php (index, approvalSettings, ptoPolicies, systemSettings, activityLog, templates, scheduleOfFees)
+- [x] resources/views/admin/index.blade.php (8 icon cards + recent activity)
+- [x] resources/views/admin/approval-settings.blade.php
+- [x] resources/views/admin/pto-policies.blade.php
+- [x] resources/views/admin/system-settings.blade.php
+- [x] resources/views/admin/activity-log.blade.php
+- [x] resources/views/admin/schedule-of-fees.blade.php
+- [x] resources/views/admin/templates.blade.php
+- [x] resources/views/admin/holidays.blade.php
+- [x] resources/views/admin/lookups.blade.php (shared for Sectors/Regions/WorkTypes/ContactTypes)
+- [x] app/Http/Controllers/UserController.php (CRUD + profile/updateProfile)
+- [x] resources/views/admin/users/index.blade.php
+- [x] resources/views/admin/users/create.blade.php
+- [x] resources/views/admin/users/edit.blade.php
+- [x] resources/views/admin/users/show.blade.php
+- [x] resources/views/profile.blade.php
+- [x] app/Http/Controllers/HolidayController.php
+- [x] app/Http/Controllers/SectorController.php
+- [x] app/Http/Controllers/RegionController.php
+- [x] app/Http/Controllers/WorkTypeController.php
+- [x] app/Http/Controllers/ContactTypeController.php
+- [x] app/Http/Controllers/CalendarController.php
+- [x] resources/views/calendar/index.blade.php (FullCalendar.js 6 + AJAX add event)
+
+---
+
+## ✅ Modules Status (Updated)
+
+| Module | Status | Key Files |
+|---|---|---|
+| Setup Wizard (install/) | ✅ DONE | install/index.php, install/sql/01-07.sql |
+| Database Schema | ✅ DONE | DATABASE_SCHEMA.md, all SQL files |
+| Auth / Login | ✅ DONE | LoginController.php, KoreAuth.php |
+| App Layout | ✅ DONE | resources/views/layouts/app.blade.php |
+| Routes | ✅ DONE | routes/web.php |
+| Supporting Models | ✅ DONE | 30+ models |
+| Dashboard | ✅ DONE | DashboardController.php, 4 views + Chart.js |
+| Proposals | ✅ DONE | ProposalController.php, 4 views |
+| Projects | ✅ DONE | ProjectController.php, 5 views |
+| Contacts / Companies | ✅ DONE | ContactController.php, CompanyController.php |
+| Timesheet | ✅ DONE | TimesheetController.php, weekly grid + history |
+| My Tasks | ✅ DONE | TaskController.php, click-to-cycle status |
+| Approval Center | ✅ DONE | ApprovalController.php, 5 views |
+| Project Schedule | ✅ DONE | ScheduleController.php, 3 views + Gantt |
+| Invoicing | ✅ DONE | InvoiceController.php, 5 views + PDF |
+| Administration | ✅ DONE | AdminController.php, 8+ admin views |
+| User Management | ✅ DONE | UserController.php, 4 user views + profile |
+| Calendar / Events | ✅ DONE | CalendarController.php, FullCalendar.js 6 |
+| Lookup Tables | ✅ DONE | Sector/Region/WorkType/ContactType/Holiday controllers |
 
 ---
 
@@ -147,4 +282,4 @@ kore-erp/
 
 ---
 
-*Last updated: Session 2 — 2026-02-20*
+*Last updated: Session 6 — 2026-03-07 — Application complete (all modules built)*

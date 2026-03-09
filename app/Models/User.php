@@ -80,6 +80,11 @@ class User extends Authenticatable
         return $this->hasOne(PtoPolicy::class, 'user_id');
     }
 
+    public function ptoPolicy(): HasOne
+    {
+        return $this->hasOne(PtoPolicy::class, 'user_id');
+    }
+
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class, 'user_id');

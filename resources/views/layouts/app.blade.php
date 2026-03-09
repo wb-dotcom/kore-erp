@@ -322,6 +322,11 @@
             <span>Project Schedule</span>
         </a>
 
+        <a href="{{ route('events.index') }}" class="nav-link {{ request()->routeIs('events*') ? 'active' : '' }}">
+            <i class="bi bi-calendar-event"></i>
+            <span>Calendar</span>
+        </a>
+
         <div class="nav-section-label">Finance</div>
 
         <a href="{{ route('invoices.index') }}" class="nav-link {{ request()->routeIs('invoices*') ? 'active' : '' }}">
