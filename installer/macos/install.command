@@ -263,7 +263,10 @@ ok "Directories and permissions configured."
 # ── Composer install ──────────────────────────────────────────────────────────
 info "Installing PHP dependencies via Composer (may take 1–3 minutes)..."
 cd "$APP_DIR"
-"$COMPOSER" install \
+# Remove lock file if it exists — it may have been generated on a different
+# PHP version or platform and will cause "incompatible lock file" errors.
+rm -f "$APP_DIR/composer.lock"
+"$COMPOSER" update \
     --no-interaction \
     --no-dev \
     --optimize-autoloader \
