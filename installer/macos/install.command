@@ -458,6 +458,15 @@ cat > "$VHOST_CONF" << VHOST
         Require all granted
     </Directory>
 
+    # Expose the web setup wizard (lives outside public/)
+    Alias /install "${APP_DIR}/install"
+    <Directory "${APP_DIR}/install">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php
+    </Directory>
+
     # Route PHP requests to PHP-FPM
     <FilesMatch "\.php$">
         SetHandler "${PHP_FPM_HANDLER}"
