@@ -11,6 +11,11 @@ app/storage/
 public/storage
 public/hot
 
+# Runtime directories
+/bootstrap/cache/
+/storage/framework/
+/storage/logs/
+
 # Laravel 5 & Lumen specific with changed public path
 public_html/storage
 public_html/hot
