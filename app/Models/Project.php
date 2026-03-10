@@ -19,6 +19,7 @@ class Project extends Model
         'project_type_id',
         'status_id',
         'proposal_id',
+        'program_id',
         'start_date',
         'end_date',
         'total_budget',
@@ -31,6 +32,8 @@ class Project extends Model
         'end_date'     => 'date',
         'total_budget' => 'decimal:2',
     ];
+
+    // ── Relationships ──────────────────────────────────────────────────────────
 
     public function company(): BelongsTo
     {
@@ -57,9 +60,21 @@ class Project extends Model
         return $this->belongsTo(Proposal::class, 'proposal_id');
     }
 
+    /** The macro-level rollout this dealership site belongs to. */
+    public function program(): BelongsTo
+    {
+        return $this->belongsTo(Program::class, 'program_id');
+    }
+
     public function deliverables(): HasMany
     {
         return $this->hasMany(Deliverable::class, 'project_id')->orderBy('sort_order');
+    }
+
+    /** AIA architectural phases, ordered for display. */
+    public function phases(): HasMany
+    {
+        return $this->hasMany(ProjectPhase::class, 'project_id')->orderBy('phase_order');
     }
 
     public function timesheetEntries(): HasMany

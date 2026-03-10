@@ -1,0 +1,97 @@
+# ============================================================
+# Kore ERP — Local Development Stack
+# PostgreSQL 16 + pgvector · Redis · Mailpit
+# ============================================================
+# Usage:
+#   ./vendor/bin/sail up -d
+#   ./vendor/bin/sail artisan migrate
+#   ./vendor/bin/sail artisan db:seed
+#
+# Mailpit UI: http://localhost:8025
+# App:        http://localhost:${APP_PORT:-80}
+# ============================================================
+
+services:
+
+  # ── Laravel Application ──────────────────────────────────────
+  laravel.test:
+    build:
+      context: ./vendor/laravel/sail/runtimes/8.3
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '${WWWGROUP}'
+    image: sail-8.3/app
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '${APP_PORT:-80}:80'
+      - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+    environment:
+      WWWUSER: '${WWWUSER}'
+      LARAVEL_SAIL: 1
+      XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+      XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+      IGNITION_LOCAL_SITES_PATH: '${PWD}'
+    volumes:
+      - '.:/var/www/html'
+    networks:
+      - kore
+    depends_on:
+      - pgsql
+      - redis
+      - mailpit
+
+  # ── PostgreSQL 16 + pgvector ─────────────────────────────────
+  # pgvector/pgvector:pg16 bundles the vector extension.
+  # After first boot, the migration enables it via:
+  #   CREATE EXTENSION IF NOT EXISTS vector;
+  pgsql:
+    image: 'pgvector/pgvector:pg16'
+    ports:
+      - '${FORWARD_DB_PORT:-5432}:5432'
+    environment:
+      PGPASSWORD: '${DB_PASSWORD:-secret}'
+      POSTGRES_DB: '${DB_DATABASE:-kore_erp}'
+      POSTGRES_USER: '${DB_USERNAME:-kore}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+    volumes:
+      - 'kore-pgsql:/var/lib/postgresql/data'
+    networks:
+      - kore
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-q', '-d', '${DB_DATABASE:-kore_erp}', '-U', '${DB_USERNAME:-kore}']
+      retries: 3
+      timeout: 5s
+
+  # ── Redis (Queue driver for AI jobs in Phase 3) ───────────────
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+      - 'kore-redis:/data'
+    networks:
+      - kore
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      retries: 3
+      timeout: 5s
+
+  # ── Mailpit (Local email capture for Phase 2 webhook testing) ─
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    ports:
+      - '${FORWARD_MAILPIT_PORT:-1025}:1025'
+      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
+    networks:
+      - kore
+
+networks:
+  kore:
+    driver: bridge
+
+volumes:
+  kore-pgsql:
+    driver: local
+  kore-redis:
+    driver: local

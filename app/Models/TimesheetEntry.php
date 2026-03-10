@@ -12,6 +12,7 @@ class TimesheetEntry extends Model
     protected $fillable = [
         'timesheet_id',
         'project_id',
+        'project_phase_id',
         'deliverable_id',
         'milestone_id',
         'task_id',
@@ -26,6 +27,8 @@ class TimesheetEntry extends Model
         'hours'      => 'decimal:2',
     ];
 
+    // ── Relationships ──────────────────────────────────────────────────────────
+
     public function timesheet(): BelongsTo
     {
         return $this->belongsTo(Timesheet::class, 'timesheet_id');
@@ -34,5 +37,14 @@ class TimesheetEntry extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class, 'project_id');
+    }
+
+    /**
+     * The specific AIA phase this labor is charged against.
+     * Used to compute budget variance per phase.
+     */
+    public function projectPhase(): BelongsTo
+    {
+        return $this->belongsTo(ProjectPhase::class, 'project_phase_id');
     }
 }
