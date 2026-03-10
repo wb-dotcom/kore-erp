@@ -107,7 +107,12 @@ class ProjectController extends Controller
             'deliverables.milestones.tasks.assignments.user',
         ]);
 
-        return view('projects.show', compact('project'));
+        $communications = \App\Models\ProjectCommunication::where('project_id', $project->id)
+            ->with('documents')
+            ->orderByDesc('sent_at')
+            ->get();
+
+        return view('projects.show', compact('project', 'communications'));
     }
 
     public function edit(Project $project)

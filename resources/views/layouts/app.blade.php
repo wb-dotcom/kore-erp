@@ -334,6 +334,12 @@
             <span>Invoicing</span>
         </a>
 
+        <div class="nav-section-label">AI Assistant</div>
+        <a href="{{ route('ai.index') }}" class="nav-link {{ request()->routeIs('ai*') ? 'active' : '' }}">
+            <i class="bi bi-robot"></i>
+            <span>Kore AI</span>
+        </a>
+
         @if(auth()->user()->role->name === 'Admin')
         <div class="nav-section-label">System</div>
         <a href="{{ route('admin.index') }}" class="nav-link {{ request()->routeIs('admin*') ? 'active' : '' }}">

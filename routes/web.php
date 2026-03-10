@@ -16,6 +16,8 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\AiController;
+use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\ProposalLineItemController;
 
 /*
 |--------------------------------------------------------------------------
@@ -51,6 +53,15 @@ Route::middleware(['auth.kore'])->group(function () {
 
     // Proposals
     Route::resource('proposals', ProposalController::class);
+    Route::get('/proposals/{proposal}/line-items',                [ProposalLineItemController::class, 'index'])->name('proposals.line-items.index');
+    Route::post('/proposals/{proposal}/line-items',               [ProposalLineItemController::class, 'store'])->name('proposals.line-items.store');
+    Route::put('/proposals/{proposal}/line-items/{item}',         [ProposalLineItemController::class, 'update'])->name('proposals.line-items.update');
+    Route::delete('/proposals/{proposal}/line-items/{item}',      [ProposalLineItemController::class, 'destroy'])->name('proposals.line-items.destroy');
+    Route::get('/proposals/{proposal}/line-items/resolve-rate',   [ProposalLineItemController::class, 'resolveRate'])->name('proposals.line-items.resolve-rate');
+    Route::post('/proposals/{proposal}/line-items/export-docs',   [ProposalLineItemController::class, 'exportDocs'])->name('proposals.line-items.export-docs');
+
+    // Documents
+    Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
 
     // Projects
     Route::resource('projects', ProjectController::class);

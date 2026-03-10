@@ -136,6 +136,60 @@
                 </div>
             </div>
         </div>
+
+        {{-- Billing Terms --}}
+        <div class="kore-card mt-4">
+            <div class="kore-card-header"><h5><i class="bi bi-receipt me-2"></i>Billing Terms</h5></div>
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <label class="form-label">Billing Type</label>
+                    <select name="billing_type" class="form-select form-select-sm">
+                        <option value="">— Select —</option>
+                        <option value="fixed" {{ old('billing_type') === 'fixed' ? 'selected' : '' }}>Fixed Fee</option>
+                        <option value="time_and_material" {{ old('billing_type') === 'time_and_material' ? 'selected' : '' }}>Time &amp; Material</option>
+                        <option value="hybrid" {{ old('billing_type') === 'hybrid' ? 'selected' : '' }}>Hybrid</option>
+                        <option value="retainer" {{ old('billing_type') === 'retainer' ? 'selected' : '' }}>Retainer</option>
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Billing Cycle</label>
+                    <select name="billing_cycle" class="form-select form-select-sm">
+                        <option value="">— Select —</option>
+                        <option value="monthly" {{ old('billing_cycle') === 'monthly' ? 'selected' : '' }}>Monthly</option>
+                        <option value="milestone" {{ old('billing_cycle') === 'milestone' ? 'selected' : '' }}>Per Milestone</option>
+                        <option value="on_completion" {{ old('billing_cycle') === 'on_completion' ? 'selected' : '' }}>On Completion</option>
+                        <option value="custom" {{ old('billing_cycle') === 'custom' ? 'selected' : '' }}>Custom</option>
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Payment Terms (days)</label>
+                    <input type="number" name="payment_terms_days" class="form-control form-control-sm"
+                        value="{{ old('payment_terms_days', 30) }}" min="0" max="365" placeholder="30">
+                </div>
+            </div>
+        </div>
+
+        {{-- Proposal Content --}}
+        <div class="kore-card mt-4">
+            <div class="kore-card-header"><h5><i class="bi bi-file-text me-2"></i>Proposal Content</h5></div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Executive Summary</label>
+                    <textarea name="executive_summary" class="form-control form-control-sm" rows="4"
+                        placeholder="Brief overview of the engagement, objectives, and value proposition...">{{ old('executive_summary') }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Scope of Work</label>
+                    <textarea name="scope_of_work" class="form-control form-control-sm" rows="6"
+                        placeholder="Detailed scope of services, deliverables, and inclusions/exclusions...">{{ old('scope_of_work') }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Terms &amp; Conditions</label>
+                    <textarea name="terms_and_conditions" class="form-control form-control-sm" rows="4"
+                        placeholder="Contractual terms, liability, IP ownership, payment conditions...">{{ old('terms_and_conditions') }}</textarea>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- Sidebar --}}

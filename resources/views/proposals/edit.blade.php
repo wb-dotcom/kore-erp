@@ -135,6 +135,55 @@
                 </div>
             </div>
         </div>
+
+        {{-- Billing Terms --}}
+        <div class="kore-card mt-4">
+            <div class="kore-card-header"><h5><i class="bi bi-receipt me-2"></i>Billing Terms</h5></div>
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <label class="form-label">Billing Type</label>
+                    <select name="billing_type" class="form-select form-select-sm">
+                        <option value="">— Select —</option>
+                        @foreach(['fixed' => 'Fixed Fee', 'time_and_material' => 'Time & Material', 'hybrid' => 'Hybrid', 'retainer' => 'Retainer'] as $val => $label)
+                        <option value="{{ $val }}" {{ old('billing_type', $proposal->billing_type) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Billing Cycle</label>
+                    <select name="billing_cycle" class="form-select form-select-sm">
+                        <option value="">— Select —</option>
+                        @foreach(['monthly' => 'Monthly', 'milestone' => 'Per Milestone', 'on_completion' => 'On Completion', 'custom' => 'Custom'] as $val => $label)
+                        <option value="{{ $val }}" {{ old('billing_cycle', $proposal->billing_cycle) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Payment Terms (days)</label>
+                    <input type="number" name="payment_terms_days" class="form-control form-control-sm"
+                        value="{{ old('payment_terms_days', $proposal->payment_terms_days ?? 30) }}" min="0" max="365">
+                </div>
+            </div>
+        </div>
+
+        {{-- Proposal Content --}}
+        <div class="kore-card mt-4">
+            <div class="kore-card-header"><h5><i class="bi bi-file-text me-2"></i>Proposal Content</h5></div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Executive Summary</label>
+                    <textarea name="executive_summary" class="form-control form-control-sm" rows="4">{{ old('executive_summary', $proposal->executive_summary) }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Scope of Work</label>
+                    <textarea name="scope_of_work" class="form-control form-control-sm" rows="6">{{ old('scope_of_work', $proposal->scope_of_work) }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Terms &amp; Conditions</label>
+                    <textarea name="terms_and_conditions" class="form-control form-control-sm" rows="4">{{ old('terms_and_conditions', $proposal->terms_and_conditions) }}</textarea>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- Sidebar --}}

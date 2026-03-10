@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\IndexProjectCommunication;
 use App\Jobs\IndexProjectDocument;
 use App\Models\Project;
 use App\Models\ProjectCommunication;
@@ -70,6 +71,11 @@ class InboundEmailService
                 'extracted_project_number'=> $projectNumber,
                 'subject'                 => $subject,
             ]);
+        }
+
+        // Queue RAG indexing of the email body text (Phase 3)
+        if (! empty($payload['TextBody'])) {
+            IndexProjectCommunication::dispatch($communication->id)->onQueue('indexing');
         }
 
         // Process attachments

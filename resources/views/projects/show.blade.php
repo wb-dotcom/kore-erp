@@ -103,8 +103,32 @@
             </div>
         </div>
 
-        {{-- Deliverables Summary --}}
-        <div class="kore-card">
+        {{-- Tabs: Deliverables + Communications --}}
+        <ul class="nav nav-tabs mb-0" id="projectTabs" role="tablist" style="border-bottom:none;">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="deliverables-tab" data-bs-toggle="tab"
+                    data-bs-target="#deliverables-pane" type="button" role="tab"
+                    style="font-size:0.8rem;">
+                    <i class="bi bi-list-task me-1"></i> Deliverables
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="comms-tab" data-bs-toggle="tab"
+                    data-bs-target="#comms-pane" type="button" role="tab"
+                    style="font-size:0.8rem;">
+                    <i class="bi bi-envelope me-1"></i> Communications
+                    @if($communications->count() > 0)
+                    <span class="badge bg-primary ms-1" style="font-size:0.65rem;">{{ $communications->count() }}</span>
+                    @endif
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+
+        {{-- Deliverables Tab --}}
+        <div class="tab-pane fade show active" id="deliverables-pane" role="tabpanel">
+        <div class="kore-card" style="border-top-left-radius:0; border-top-right-radius:0;">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div class="fw-600" style="font-size:0.8rem; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">
                     Deliverables & Tasks
@@ -147,6 +171,53 @@
             </div>
             @endforelse
         </div>
+        </div>{{-- /deliverables-pane --}}
+
+        {{-- Communications Tab --}}
+        <div class="tab-pane fade" id="comms-pane" role="tabpanel">
+        <div class="kore-card" style="border-top-left-radius:0; border-top-right-radius:0;">
+            @forelse($communications as $comm)
+            <div class="border-bottom pb-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <div>
+                        <span class="fw-600" style="font-size:0.82rem;">{{ $comm->subject ?? '(No Subject)' }}</span>
+                        <span class="badge {{ $comm->isMatched() ? 'bg-success' : 'bg-secondary' }} ms-2" style="font-size:0.65rem;">
+                            {{ $comm->processing_status }}
+                        </span>
+                    </div>
+                    <div style="font-size:0.72rem; color:#9ca3af;">
+                        {{ $comm->sent_at?->format('M d, Y H:i') ?? $comm->created_at->format('M d, Y H:i') }}
+                    </div>
+                </div>
+                <div style="font-size:0.75rem; color:#6b7280; margin-bottom:6px;">
+                    <i class="bi bi-person me-1"></i>{{ $comm->sender_display }}
+                </div>
+                @if($comm->body_text)
+                <div style="font-size:0.78rem; color:#374151; white-space:pre-wrap; max-height:100px; overflow:hidden; position:relative;"
+                    class="comm-body-preview">{{ \Illuminate\Support\Str::limit($comm->body_text, 300) }}</div>
+                @endif
+                @if($comm->documents->count() > 0)
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                    @foreach($comm->documents as $doc)
+                    <a href="{{ route('documents.download', $doc) }}" class="badge bg-light text-dark border text-decoration-none"
+                        style="font-size:0.72rem; font-weight:500;" title="{{ $doc->original_filename }}">
+                        <i class="bi bi-paperclip me-1"></i>{{ \Illuminate\Support\Str::limit($doc->original_filename, 25) }}
+                        <span class="text-muted ms-1">{{ $doc->file_size_human }}</span>
+                    </a>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+            @empty
+            <div class="text-center py-4" style="font-size:0.82rem; color:#9ca3af;">
+                <i class="bi bi-envelope-x" style="font-size:1.5rem; display:block; margin-bottom:8px;"></i>
+                No inbound emails matched to this project yet.
+            </div>
+            @endforelse
+        </div>
+        </div>{{-- /comms-pane --}}
+
+        </div>{{-- /tab-content --}}
 
     </div>
 
