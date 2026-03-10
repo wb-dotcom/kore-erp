@@ -147,17 +147,17 @@ class DatabaseSeeder extends Seeder
     private function seedWorkTypes(): void
     {
         $types = [
-            ['name' => 'Architecture',     'description' => 'Full architectural services'],
-            ['name' => 'Interior Design',  'description' => 'Interior design and specification'],
-            ['name' => 'Landscape',        'description' => 'Landscape architecture services'],
-            ['name' => 'Urban Planning',   'description' => 'Urban design and planning'],
-            ['name' => 'Engineering',      'description' => 'Structural or MEP engineering'],
-            ['name' => 'Consulting',       'description' => 'Expert advisory services'],
-            ['name' => 'Construction Administration', 'description' => 'CA / site supervision'],
+            'Architecture',
+            'Interior Design',
+            'Landscape',
+            'Urban Planning',
+            'Engineering',
+            'Consulting',
+            'Construction Administration',
         ];
 
-        foreach ($types as $type) {
-            WorkType::firstOrCreate(['name' => $type['name']], $type);
+        foreach ($types as $name) {
+            WorkType::firstOrCreate(['name' => $name]);
         }
 
         $this->command->line('  ✓ Work types seeded (' . count($types) . ')');
