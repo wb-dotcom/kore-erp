@@ -63,7 +63,7 @@ class LoginController extends Controller
         $user->update(['last_login' => now()]);
 
         // Log activity
-        ActivityLog::log('login', 'auth', $user->id, 'User logged in', $request->ip());
+        ActivityLog::record('login', 'auth', $user->id, 'User logged in');
 
         $request->session()->regenerate();
 
@@ -82,7 +82,7 @@ class LoginController extends Controller
 
         // Log activity
         if ($userId) {
-            ActivityLog::log('logout', 'auth', $userId, 'User logged out');
+            ActivityLog::record('logout', 'auth', $userId, 'User logged out');
         }
 
         return redirect()->route('login')->with('success', 'You have been signed out successfully.');
@@ -159,7 +159,7 @@ class LoginController extends Controller
         $user->update(['password' => Hash::make($request->password)]);
         DB::table('password_resets')->where('email', $request->email)->delete();
 
-        ActivityLog::log('password_reset', 'auth', $user->id, 'Password was reset');
+        ActivityLog::record('password_reset', 'auth', $user->id, 'Password was reset');
 
         return redirect()->route('login')->with('success', 'Password reset successfully. Please log in with your new password.');
     }
