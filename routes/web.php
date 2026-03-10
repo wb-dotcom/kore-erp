@@ -15,6 +15,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\AiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -120,6 +121,16 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::get('/profile',        [UserController::class, 'profile'])->name('profile');
     Route::put('/profile',        [UserController::class, 'updateProfile'])->name('profile.update');
 
+    // ─── Kore AI ───────────────────────────────────────────────────────────────
+    Route::prefix('ai')->name('ai.')->group(function () {
+        Route::get('/',                            [AiController::class, 'index'])->name('index');
+        Route::get('/new',                         [AiController::class, 'create'])->name('new');
+        Route::get('/{conversation}',              [AiController::class, 'show'])->name('show');
+        Route::post('/{conversation}/chat',        [AiController::class, 'chat'])->name('chat');
+        Route::put('/{conversation}',              [AiController::class, 'update'])->name('update');
+        Route::delete('/{conversation}',           [AiController::class, 'destroy'])->name('destroy');
+    });
+
     // API endpoints for AJAX
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/projects/{project}/deliverables', [ProjectController::class, 'apiDeliverables'])->name('project.deliverables');
@@ -127,5 +138,8 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::get('/milestones/{milestone}/tasks', [ProjectController::class, 'apiTasks'])->name('milestone.tasks');
         Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart');
         Route::get('/schedule/gantt',       [ScheduleController::class, 'ganttData'])->name('schedule.gantt');
+        // Kore AI API
+        Route::get('/ai/models',  [AiController::class, 'apiModels'])->name('ai.models');
+        Route::get('/ai/status',  [AiController::class, 'apiStatus'])->name('ai.status');
     });
 });
