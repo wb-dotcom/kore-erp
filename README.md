@@ -1,44 +1,68 @@
 # Kore ERP
 
-**A self-hosted, installable ERP web application built with PHP + MySQL for Windows Server.**
-
-Redeveloped from the K5 KORE proprietary system with a full guided setup wizard, modular architecture, and a clean Bootstrap 5 UI.
+**A self-hosted ERP for architecture & professional services firms — built with Laravel 11, PostgreSQL, and Ollama AI.**
 
 ---
 
 ## Quick Start
 
-1. Clone or copy the project to your Windows Server
-2. Point your web server document root to `/public`
-3. Navigate to `/install/index.php` in your browser
-4. Follow the 6-step setup wizard (DB config → admin account → company settings)
-5. **Delete the `/install` folder** after installation for security
-
-### Requirements
-
-- PHP 8.2+
-- MySQL 8.0+
-- Windows Server with IIS (URL Rewrite module) **or** Apache/XAMPP
-- Composer
-
-### Installation Steps
+### Option A — Docker (Recommended)
 
 ```bash
-# 1. Clone the repo
+# 1. Clone
 git clone https://github.com/wb-dotcom/kore-erp.git
 cd kore-erp
 
-# 2. Install dependencies
-composer install --no-dev --optimize-autoloader
+# 2. Install PHP dependencies
+composer install
 
-# 3. Copy environment file
-copy .env.example .env
-
-# 4. Generate app key
+# 3. Copy env and generate key
+cp .env.example .env
 php artisan key:generate
 
-# 5. Run the web setup wizard
-# Open: http://yourserver/install/index.php
+# 4. Start containers (PostgreSQL 16 + pgvector, Redis, Mailpit)
+./vendor/bin/sail up -d
+
+# 5. Run migrations and seed reference data
+./vendor/bin/sail artisan migrate
+./vendor/bin/sail artisan db:seed
+
+# Default admin: admin@kore-erp.local / ChangeMe123!
+# ⚠ Change the password immediately after first login
+```
+
+### Option B — Windows Server (IIS / Apache + MySQL)
+
+```bash
+# 1. Clone and install dependencies
+git clone https://github.com/wb-dotcom/kore-erp.git
+cd kore-erp
+composer install --no-dev --optimize-autoloader
+
+# 2. Run the web setup wizard
+# Point document root to /public, then open:
+# http://yourserver/install/index.php
+# Follow the 6-step wizard (DB config → admin account → company settings)
+
+# 3. IMPORTANT: Delete /install folder after setup
+```
+
+> **Note:** The Docker path uses PostgreSQL 16 + pgvector (required for AI embeddings).
+> The Windows/MySQL path uses the `install/sql/` schema files and does not include vector search.
+
+---
+
+## Requirements
+
+| Path | PHP | Database | Other |
+|---|---|---|---|
+| Docker | 8.2+ | PostgreSQL 16 + pgvector | Docker Desktop, Ollama |
+| Windows/MySQL | 8.2+ | MySQL 8.0+ | IIS (URL Rewrite) or Apache/XAMPP |
+
+**AI features (Ollama):** Install [Ollama](https://ollama.ai), then:
+```bash
+ollama pull llama3
+ollama pull nomic-embed-text
 ```
 
 ---
@@ -50,11 +74,12 @@ php artisan key:generate
 | Backend | PHP 8.2+ / Laravel 11 |
 | Frontend | Blade + Bootstrap 5.3 + Bootstrap Icons |
 | Charts | Chart.js 4 |
-| Calendar/Gantt | FullCalendar.js (Session 6) |
+| Calendar/Gantt | FullCalendar.js |
 | PDF Generation | barryvdh/laravel-dompdf |
-| Database | MySQL 8.0 |
+| Database | PostgreSQL 16 + pgvector (Docker) / MySQL 8.0 (Windows) |
+| AI | Ollama (llama3 chat, nomic-embed-text embeddings) |
+| Cache/Queue | Redis |
 | Auth | Session-based (custom middleware) |
-| Server | Windows Server — IIS or Apache/XAMPP |
 
 ---
 
@@ -63,27 +88,19 @@ php artisan key:generate
 | Module | Status |
 |---|---|
 | Auth / Login | ✅ Complete |
-| Dashboard (4 views) | ✅ Complete |
-| Proposals | ✅ Complete |
-| Projects | 🔲 In Development |
-| Contacts & CRM | 🔲 In Development |
-| Timesheet | 🔲 Planned |
-| My Tasks | 🔲 Planned |
-| Approval Center | 🔲 Planned |
-| Project Schedule (Gantt) | 🔲 Planned |
-| Invoicing + PDF | 🔲 Planned |
-| Administration | 🔲 Planned |
-| User Management | 🔲 Planned |
-
----
-
-## Project Documents
-
-| File | Description |
-|---|---|
-| [PROGRESS.md](PROGRESS.md) | Session-by-session build tracker — **start here each session** |
-| [PROJECT_README.md](PROJECT_README.md) | Full redevelopment plan, module specs, phases |
-| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Complete MySQL schema for all 30+ tables |
+| Dashboard (4 role views) | ✅ Complete |
+| CRM — Contacts & Companies | ✅ Complete |
+| Proposals & Rate Schedules | ✅ Complete |
+| Projects — Phases, Deliverables, Milestones, Tasks | ✅ Complete |
+| Project Schedule (Gantt / Calendar) | ✅ Complete |
+| Timesheet & Time Entry | ✅ Complete |
+| Time-Off Requests | ✅ Complete |
+| My Tasks | ✅ Complete |
+| Approval Center | ✅ Complete |
+| Invoicing + PDF Export | ✅ Complete |
+| AI Assistant (Ollama RAG chat) | ✅ Complete |
+| Administration — Users, Roles, Fees, Settings | ✅ Complete |
+| Activity Log | ✅ Complete |
 
 ---
 
@@ -93,29 +110,46 @@ php artisan key:generate
 kore-erp/
 ├── app/
 │   ├── Http/
-│   │   ├── Controllers/     # Feature controllers
+│   │   ├── Controllers/     # 24 feature controllers
 │   │   └── Middleware/      # KoreAuth, RoleMiddleware
-│   └── Models/              # 18+ Eloquent models
-├── bootstrap/
-│   └── app.php              # Laravel 11 app config
-├── config/
-│   └── kore.php             # ERP-specific config values
+│   ├── Models/              # 41 Eloquent models
+│   └── Services/            # OllamaChatService, KoreContextAssembler, etc.
+├── database/
+│   ├── migrations/          # 17 Laravel migrations (PostgreSQL)
+│   └── seeders/
+│       └── DatabaseSeeder.php  # Idempotent reference data seeder
 ├── install/
-│   ├── index.php            # 6-step setup wizard
-│   └── sql/                 # Database schema (01–07.sql)
-├── public/
-│   ├── index.php            # Web entry point
-│   └── .htaccess            # Apache rewrite rules
-├── resources/views/
-│   ├── layouts/app.blade.php
-│   ├── auth/
-│   ├── dashboard/           # 4 dashboard views
-│   └── proposals/           # CRUD views
+│   ├── index.php            # 6-step web setup wizard (MySQL path)
+│   └── sql/                 # MySQL schema (01_core → 07_settings.sql)
+├── resources/views/         # Blade templates for all modules
 ├── routes/
 │   ├── web.php              # All application routes
 │   └── console.php          # Artisan commands
-├── .env.example
+├── .env.example             # Full environment template (AI, DB, Redis, Mail)
+├── docker-compose.yml       # PostgreSQL 16, Redis, Mailpit
 └── composer.json
+```
+
+---
+
+## Environment Variables (Key Settings)
+
+```env
+# AI / Ollama
+AI_ENABLED=true
+AI_DEFAULT_MODEL=llama3
+OLLAMA_HOST=http://host.docker.internal:11434
+OLLAMA_CHAT_MODEL=llama3
+OLLAMA_EMBED_MODEL=nomic-embed-text
+
+# Database (Docker/PostgreSQL)
+DB_CONNECTION=pgsql
+DB_HOST=pgsql
+DB_DATABASE=kore_erp
+
+# Database (Windows/MySQL)
+# DB_CONNECTION=mysql
+# DB_HOST=127.0.0.1
 ```
 
 ---
@@ -124,9 +158,20 @@ kore-erp/
 
 - Delete `/install/` folder after first setup
 - Set `APP_DEBUG=false` in production `.env`
+- Change the default admin password (`ChangeMe123!`) immediately
 - Use a strong `APP_KEY` (generated by `php artisan key:generate`)
-- Ensure MySQL user has least-privilege permissions
+- Ensure database user has least-privilege permissions
 
 ---
 
-*Built with Laravel 11 · Bootstrap 5 · Chart.js*
+## Project Documents
+
+| File | Description |
+|---|---|
+| [PROGRESS.md](PROGRESS.md) | Session-by-session build tracker |
+| [PROJECT_README.md](PROJECT_README.md) | Full redevelopment plan, module specs, phases |
+| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Complete schema documentation |
+
+---
+
+*Built with Laravel 11 · PostgreSQL + pgvector · Bootstrap 5 · Ollama AI*
