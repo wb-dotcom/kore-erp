@@ -55,7 +55,7 @@ class KoreDataTools
 
         $totalBudgetedHours = $project->phases->sum('estimated_hours');
         $totalBurnedHours   = $this->getProjectBurnedHours($projectId);
-        $totalBilled        = Invoice::where('project_id', $projectId)->sum('total_amount');
+        $totalBilled        = Invoice::where('project_id', $projectId)->sum('total');
         $hoursPercent       = $totalBudgetedHours > 0
             ? round(($totalBurnedHours / $totalBudgetedHours) * 100, 1)
             : 0;
@@ -175,9 +175,9 @@ class KoreDataTools
             return "No invoices issued for this project.";
         }
 
-        $totalBilled  = $invoices->sum('total_amount');
-        $totalPaid    = $invoices->where('status', 'paid')->sum('total_amount');
-        $totalOverdue = $invoices->where('status', 'overdue')->sum('total_amount');
+        $totalBilled  = $invoices->sum('total');
+        $totalPaid    = $invoices->where('status', 'paid')->sum('total');
+        $totalOverdue = $invoices->where('status', 'overdue')->sum('total');
 
         $lines = [
             "INVOICES: {$invoices->count()} total | {$this->money($totalBilled)} billed | "
@@ -187,7 +187,7 @@ class KoreDataTools
         foreach ($invoices as $inv) {
             $flag    = $inv->status === 'overdue' ? '🚨 ' : ($inv->status === 'paid' ? '✅ ' : '🔄 ');
             $due     = $inv->due_date ? " due {$this->date($inv->due_date)}" : '';
-            $lines[] = "  {$flag}{$inv->invoice_number}: {$this->money($inv->total_amount)} — "
+            $lines[] = "  {$flag}{$inv->invoice_number}: {$this->money($inv->total)} — "
                 . strtoupper($inv->status) . $due;
         }
 
@@ -258,7 +258,7 @@ class KoreDataTools
             ->get();
 
         $openProposals    = Proposal::whereHas('status', fn($q) => $q->whereIn('name', ['Draft', 'Submitted', 'Under Review']))->count();
-        $pendingInvoices  = Invoice::whereIn('status', ['sent', 'overdue'])->sum('total_amount');
+        $pendingInvoices  = Invoice::whereIn('status', ['sent', 'overdue'])->sum('total');
         $overdueInvoices  = Invoice::where('status', 'overdue')->count();
 
         $lines = [

@@ -102,7 +102,7 @@ class DashboardController extends Controller
     {
         // Invoice totals
         $invoiceTotals = DB::table('invoices')
-            ->select('status', DB::raw('COUNT(*) as count'), DB::raw('SUM(total_amount) as amount'))
+            ->select('status', DB::raw('COUNT(*) as count'), DB::raw('SUM(total) as amount'))
             ->groupBy('status')
             ->get()
             ->keyBy('status');
@@ -125,8 +125,8 @@ class DashboardController extends Controller
             ->where('status', 'paid')
             ->where('paid_date', '>=', now()->subMonths(6))
             ->select(
-                DB::raw("DATE_FORMAT(paid_date, '%Y-%m') as month"),
-                DB::raw('SUM(total_amount) as total')
+                DB::raw("TO_CHAR(paid_at, 'YYYY-MM') as month"),
+                DB::raw('SUM(total) as total')
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -149,9 +149,6 @@ class DashboardController extends Controller
         $totalUsers      = DB::table('users')->where('is_active', 1)->count();
         $submittedCount  = DB::table('timesheets')
             ->whereIn('status', ['submitted', 'approved'])
-            ->whereHas('period', function ($q) {
-                // Can't use whereHas on query builder — raw join instead
-            })
             ->count();
 
         // Active tasks overview

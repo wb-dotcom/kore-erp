@@ -128,7 +128,7 @@
                     </a>
                 </td>
                 <td>{{ $inv->company_name }}</td>
-                <td>${{ number_format($inv->total_amount, 2) }}</td>
+                <td>${{ number_format($inv->total, 2) }}</td>
                 <td>{{ $inv->due_date ? \Carbon\Carbon::parse($inv->due_date)->format('M d, Y') : '—' }}</td>
                 <td>
                     @php

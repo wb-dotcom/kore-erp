@@ -131,7 +131,7 @@ PROMPT;
             if (empty($mentionedProjects) && ! $scopedProjectId) {
                 $overdue = \App\Models\Invoice::where('status', 'overdue')
                     ->with('project')
-                    ->orderByDesc('total_amount')
+                    ->orderByDesc('total')
                     ->limit(10)
                     ->get();
 
@@ -139,7 +139,7 @@ PROMPT;
                     $lines = ["OVERDUE INVOICES ({$overdue->count()}):"];
                     foreach ($overdue as $inv) {
                         $lines[] = "  🚨 {$inv->invoice_number}: {$inv->project?->project_number} — "
-                            . config('kore.currency_symbol', '$') . number_format($inv->total_amount)
+                            . config('kore.currency_symbol', '$') . number_format($inv->total)
                             . " due {$inv->due_date?->format(config('kore.date_format', 'M d, Y'))}";
                     }
                     $contextBlocks[] = implode("\n", $lines);
