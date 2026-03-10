@@ -97,7 +97,7 @@ class ProposalController extends Controller
 
     public function show(Proposal $proposal)
     {
-        $proposal->load(['company', 'status', 'sector', 'workType', 'accountManager', 'createdBy', 'project']);
+        $proposal->load(['company', 'status', 'sector', 'workType', 'accountManager', 'createdBy', 'project', 'rateSchedules']);
         return view('proposals.show', compact('proposal'));
     }
 

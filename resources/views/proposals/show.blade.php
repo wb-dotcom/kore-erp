@@ -203,6 +203,58 @@
         </div>
         @endif
 
+        {{-- Rate Overrides --}}
+        <div class="kore-card mb-3">
+            <div class="kore-card-header">
+                <h5><i class="bi bi-currency-dollar me-1"></i>Rate Overrides</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                    onclick="document.getElementById('addRateOverrideForm').classList.toggle('d-none')"
+                    style="font-size:0.7rem; padding:2px 8px;">
+                    <i class="bi bi-plus-sm"></i>
+                </button>
+            </div>
+
+            {{-- Add rate override form (hidden by default) --}}
+            <form id="addRateOverrideForm" action="{{ route('proposals.rate-schedules.store', $proposal) }}" method="POST" class="d-none mb-3">
+                @csrf
+                <div class="row g-2">
+                    <div class="col-7">
+                        <input type="text" name="scope_value" class="form-control form-control-sm"
+                            placeholder="Role name (e.g. Principal)" required>
+                    </div>
+                    <div class="col-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text" style="font-size:0.72rem;">$</span>
+                            <input type="number" name="hourly_rate" class="form-control" step="0.01" min="0"
+                                placeholder="Rate" required>
+                        </div>
+                    </div>
+                    <div class="col-1 d-flex align-items-center">
+                        <button type="submit" class="btn btn-primary btn-sm px-2"><i class="bi bi-check-lg"></i></button>
+                    </div>
+                </div>
+                <input type="hidden" name="scope" value="role">
+            </form>
+
+            @forelse($proposal->rateSchedules as $rs)
+            <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                <span style="font-size:0.75rem;">{{ $rs->scope_value }}</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="font-size:0.75rem; font-weight:600; color:#374151;">${{ number_format($rs->hourly_rate, 0) }}/hr</span>
+                    <form action="{{ route('proposals.rate-schedules.destroy', [$proposal, $rs]) }}" method="POST"
+                        onsubmit="return confirm('Remove this rate override?')" class="d-inline">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Remove">
+                            <i class="bi bi-x-lg" style="font-size:0.7rem;"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            @empty
+            <div style="font-size:0.75rem; color:#9ca3af;">No rate overrides. Global schedule of fees applies.</div>
+            @endforelse
+        </div>
+
         {{-- Meta --}}
         <div class="kore-card">
             <div class="kore-card-header"><h5>Info</h5></div>

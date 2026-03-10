@@ -222,6 +222,50 @@ class ProjectController extends Controller
         return back()->with('success', 'Task added.');
     }
 
+    public function updateDeliverable(Request $request, Project $project, Deliverable $deliverable)
+    {
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+        ]);
+
+        $deliverable->update($data);
+
+        ActivityLog::record('Updated deliverable', 'deliverables', $deliverable->id, $deliverable->name);
+
+        return back()->with('success', 'Deliverable updated.');
+    }
+
+    public function destroyDeliverable(Project $project, Deliverable $deliverable)
+    {
+        $name = $deliverable->name;
+        $deliverable->delete();
+
+        ActivityLog::record('Deleted deliverable', 'deliverables', null, $name);
+
+        return back()->with('success', "Deliverable \"{$name}\" deleted.");
+    }
+
+    public function updateMilestone(Request $request, Milestone $milestone)
+    {
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+        ]);
+
+        $milestone->update($data);
+
+        return back()->with('success', 'Milestone updated.');
+    }
+
+    public function destroyMilestone(Milestone $milestone)
+    {
+        $name = $milestone->name;
+        $milestone->delete();
+
+        return back()->with('success', "Milestone \"{$name}\" deleted.");
+    }
+
     public function updateTask(Request $request, Task $task)
     {
         $data = $request->validate([
@@ -229,12 +273,20 @@ class ProjectController extends Controller
             'description' => ['nullable', 'string'],
             'start_date'  => ['nullable', 'date'],
             'end_date'    => ['nullable', 'date'],
-            'status'      => ['required', 'string', 'in:pending,in_progress,complete'],
+            'status'      => ['required', 'string', 'in:pending,in_progress,complete,cancelled'],
         ]);
 
         $task->update($data);
 
         return back()->with('success', 'Task updated.');
+    }
+
+    public function destroyTask(Task $task)
+    {
+        $name = $task->name;
+        $task->delete();
+
+        return back()->with('success', "Task \"{$name}\" deleted.");
     }
 
     // ─── AJAX Endpoints ──────────────────────────────────────────────────────

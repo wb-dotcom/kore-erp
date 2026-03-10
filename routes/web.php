@@ -59,17 +59,24 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::delete('/proposals/{proposal}/line-items/{item}',      [ProposalLineItemController::class, 'destroy'])->name('proposals.line-items.destroy');
     Route::get('/proposals/{proposal}/line-items/resolve-rate',   [ProposalLineItemController::class, 'resolveRate'])->name('proposals.line-items.resolve-rate');
     Route::post('/proposals/{proposal}/line-items/export-docs',   [ProposalLineItemController::class, 'exportDocs'])->name('proposals.line-items.export-docs');
+    Route::post('/proposals/{proposal}/rate-schedules',            [ProposalLineItemController::class, 'storeRateSchedule'])->name('proposals.rate-schedules.store');
+    Route::delete('/proposals/{proposal}/rate-schedules/{rateSchedule}', [ProposalLineItemController::class, 'destroyRateSchedule'])->name('proposals.rate-schedules.destroy');
 
     // Documents
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
 
     // Projects
     Route::resource('projects', ProjectController::class);
-    Route::get('/projects/{project}/deliverables',                   [ProjectController::class, 'deliverables'])->name('projects.deliverables');
-    Route::post('/projects/{project}/deliverables',                  [ProjectController::class, 'storeDeliverable'])->name('projects.deliverables.store');
-    Route::post('/projects/{project}/deliverables/{deliverable}/milestones', [ProjectController::class, 'storeMilestone'])->name('projects.milestones.store');
-    Route::post('/milestones/{milestone}/tasks',                     [ProjectController::class, 'storeTask'])->name('projects.tasks.store');
-    Route::put('/tasks/{task}',                                      [ProjectController::class, 'updateTask'])->name('projects.tasks.update');
+    Route::get('/projects/{project}/deliverables',                             [ProjectController::class, 'deliverables'])->name('projects.deliverables');
+    Route::post('/projects/{project}/deliverables',                            [ProjectController::class, 'storeDeliverable'])->name('projects.deliverables.store');
+    Route::put('/projects/{project}/deliverables/{deliverable}',               [ProjectController::class, 'updateDeliverable'])->name('projects.deliverables.update');
+    Route::delete('/projects/{project}/deliverables/{deliverable}',            [ProjectController::class, 'destroyDeliverable'])->name('projects.deliverables.destroy');
+    Route::post('/projects/{project}/deliverables/{deliverable}/milestones',   [ProjectController::class, 'storeMilestone'])->name('projects.milestones.store');
+    Route::put('/milestones/{milestone}',                                      [ProjectController::class, 'updateMilestone'])->name('projects.milestones.update');
+    Route::delete('/milestones/{milestone}',                                   [ProjectController::class, 'destroyMilestone'])->name('projects.milestones.destroy');
+    Route::post('/milestones/{milestone}/tasks',                               [ProjectController::class, 'storeTask'])->name('projects.tasks.store');
+    Route::put('/tasks/{task}',                                                [ProjectController::class, 'updateTask'])->name('projects.tasks.update');
+    Route::delete('/tasks/{task}',                                             [ProjectController::class, 'destroyTask'])->name('projects.tasks.destroy');
 
     // Contacts
     Route::resource('contacts', ContactController::class);

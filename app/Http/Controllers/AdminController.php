@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\ApprovalSetting;
 use App\Models\PtoPolicy;
+use App\Models\ScheduleOfFee;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -86,14 +87,49 @@ class AdminController extends Controller
 
     public function scheduleOfFees()
     {
-        // Placeholder — extend with a schedule_of_fees table if needed
-        $fees = collect();
+        $fees = ScheduleOfFee::orderBy('role_name')->get();
         return view('admin.schedule-of-fees', compact('fees'));
     }
 
     public function saveScheduleOfFees(Request $request)
     {
-        return back()->with('success', 'Schedule of fees saved.');
+        $data = $request->validate([
+            'fees'              => ['nullable', 'array'],
+            'fees.*.id'         => ['nullable', 'integer'],
+            'fees.*.role_name'  => ['required', 'string', 'max:100'],
+            'fees.*.hourly_rate'=> ['required', 'numeric', 'min:0'],
+            'fees.*.effective_date' => ['nullable', 'date'],
+        ]);
+
+        $submittedIds = [];
+
+        foreach ($data['fees'] ?? [] as $row) {
+            if (empty(trim($row['role_name']))) continue;
+
+            $fee = isset($row['id']) && $row['id']
+                ? ScheduleOfFee::find($row['id'])
+                : new ScheduleOfFee();
+
+            if (! $fee) $fee = new ScheduleOfFee();
+
+            $fee->role_name      = trim($row['role_name']);
+            $fee->hourly_rate    = $row['hourly_rate'];
+            $fee->effective_date = $row['effective_date'] ?? null;
+            $fee->save();
+
+            $submittedIds[] = $fee->id;
+        }
+
+        // Delete rows that were removed from the form
+        if (! empty($submittedIds)) {
+            ScheduleOfFee::whereNotIn('id', $submittedIds)->delete();
+        } else {
+            ScheduleOfFee::truncate();
+        }
+
+        ActivityLog::record('Updated schedule of fees', 'system_settings', null, count($submittedIds) . ' rates');
+
+        return back()->with('success', 'Schedule of fees saved successfully.');
     }
 
     public function systemSettings()

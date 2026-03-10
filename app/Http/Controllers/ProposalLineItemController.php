@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Proposal;
 use App\Models\ProposalLineItem;
+use App\Models\ProposalRateSchedule;
 use App\Services\GoogleDocsExportService;
 use App\Services\ProposalFeeCalculator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
@@ -142,6 +144,47 @@ class ProposalLineItemController extends Controller
                 'error' => 'Google Docs export failed: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    // ── Rate Schedule Overrides ────────────────────────────────────────────────
+
+    /**
+     * Add a per-proposal rate override for a specific role.
+     *
+     * POST /proposals/{proposal}/rate-schedules
+     */
+    public function storeRateSchedule(Request $request, Proposal $proposal): RedirectResponse
+    {
+        $data = $request->validate([
+            'scope'       => ['required', 'in:role,work_type,phase'],
+            'scope_value' => ['required', 'string', 'max:100'],
+            'hourly_rate' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $data['proposal_id'] = $proposal->id;
+
+        ProposalRateSchedule::updateOrCreate(
+            ['proposal_id' => $proposal->id, 'scope' => $data['scope'], 'scope_value' => $data['scope_value']],
+            ['hourly_rate' => $data['hourly_rate']]
+        );
+
+        return back()->with('success', "Rate override for \"{$data['scope_value']}\" saved.");
+    }
+
+    /**
+     * Remove a per-proposal rate override.
+     *
+     * DELETE /proposals/{proposal}/rate-schedules/{rateSchedule}
+     */
+    public function destroyRateSchedule(Proposal $proposal, ProposalRateSchedule $rateSchedule): RedirectResponse
+    {
+        if ($rateSchedule->proposal_id !== $proposal->id) {
+            abort(403);
+        }
+
+        $rateSchedule->delete();
+
+        return back()->with('success', 'Rate override removed.');
     }
 
     // ── Private ────────────────────────────────────────────────────────────────
