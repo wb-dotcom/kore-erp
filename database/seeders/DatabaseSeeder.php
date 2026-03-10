@@ -66,16 +66,10 @@ class DatabaseSeeder extends Seeder
 
     private function seedProjectStatuses(): void
     {
-        $statuses = [
-            ['name' => 'In Progress', 'color' => '#3b82f6'],
-            ['name' => 'On Hold',     'color' => '#f59e0b'],
-            ['name' => 'Complete',    'color' => '#22c55e'],
-            ['name' => 'Cancelled',   'color' => '#ef4444'],
-            ['name' => 'Draft',       'color' => '#9ca3af'],
-        ];
+        $statuses = ['In Progress', 'On Hold', 'Complete', 'Cancelled', 'Draft'];
 
-        foreach ($statuses as $status) {
-            ProjectStatus::firstOrCreate(['name' => $status['name']], $status);
+        foreach ($statuses as $name) {
+            ProjectStatus::firstOrCreate(['name' => $name]);
         }
 
         $this->command->line('  ✓ Project statuses seeded (' . count($statuses) . ')');
@@ -106,14 +100,14 @@ class DatabaseSeeder extends Seeder
     private function seedProjectTypes(): void
     {
         $types = [
-            ['name' => 'New Construction',      'description' => 'Ground-up new building projects'],
-            ['name' => 'Renovation',             'description' => 'Renovation and retrofit of existing structures'],
-            ['name' => 'Interior Design',        'description' => 'Interior fit-out and design'],
-            ['name' => 'Feasibility Study',      'description' => 'Pre-design feasibility and due diligence'],
-            ['name' => 'Master Planning',        'description' => 'Campus or urban master planning'],
-            ['name' => 'Landscape Architecture', 'description' => 'Exterior landscape and site design'],
-            ['name' => 'Historic Preservation',  'description' => 'Heritage and conservation projects'],
-            ['name' => 'Consulting',             'description' => 'Advisory and consulting engagements'],
+            ['name' => 'New Construction',      'is_billable' => true],
+            ['name' => 'Renovation',             'is_billable' => true],
+            ['name' => 'Interior Design',        'is_billable' => true],
+            ['name' => 'Feasibility Study',      'is_billable' => true],
+            ['name' => 'Master Planning',        'is_billable' => true],
+            ['name' => 'Landscape Architecture', 'is_billable' => true],
+            ['name' => 'Historic Preservation',  'is_billable' => true],
+            ['name' => 'Consulting',             'is_billable' => true],
         ];
 
         foreach ($types as $type) {
