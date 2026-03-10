@@ -244,6 +244,40 @@ class KoreDataTools
         return implode("\n", $lines);
     }
 
+    // ── Proposal Pipeline ──────────────────────────────────────────────────────
+
+    /**
+     * Full proposal pipeline across all statuses — used when user asks about proposals.
+     */
+    public function getProposalsPipelineSummary(): string
+    {
+        $proposals = Proposal::with(['company', 'status', 'accountManager'])
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get();
+
+        if ($proposals->isEmpty()) {
+            return "PROPOSALS: There are no proposals in the system. The database is empty.";
+        }
+
+        $byStatus = $proposals->groupBy(fn($p) => $p->status?->name ?? 'Unknown');
+        $totalFee = $proposals->sum('total_fee');
+
+        $lines = [
+            "PROPOSALS PIPELINE ({$proposals->count()} total | {$this->money($totalFee)} total fee value):",
+        ];
+
+        foreach ($byStatus as $status => $group) {
+            $statusTotal = $group->sum('total_fee');
+            $lines[]     = "\n  {$status} ({$group->count()}) — {$this->money($statusTotal)}:";
+            foreach ($group as $p) {
+                $lines[] = "    • {$p->ref}: \"{$p->title}\" | Client: {$p->company?->name} | Fee: {$this->money($p->total_fee)}";
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
     // ── Portfolio Overview ─────────────────────────────────────────────────────
 
     /**
@@ -257,13 +291,15 @@ class KoreDataTools
             ->orderByDesc('start_date')
             ->get();
 
+        $totalProposals   = Proposal::count();
         $openProposals    = Proposal::whereHas('status', fn($q) => $q->whereIn('name', ['Draft', 'Submitted', 'Under Review']))->count();
+        $approvedProposals = Proposal::whereHas('status', fn($q) => $q->where('name', 'Approved'))->count();
         $pendingInvoices  = Invoice::whereIn('status', ['sent', 'overdue'])->sum('total');
         $overdueInvoices  = Invoice::where('status', 'overdue')->count();
 
         $lines = [
             "PORTFOLIO OVERVIEW ({$this->date(now())})",
-            "Active Projects: {$activeProjects->count()} | Open Proposals: {$openProposals}",
+            "Active Projects: {$activeProjects->count()} | Total Proposals: {$totalProposals} (Open: {$openProposals}, Approved: {$approvedProposals})",
             "Outstanding Invoices: {$this->money($pendingInvoices)} ({$overdueInvoices} overdue)",
             "",
             "ACTIVE PROJECTS:",
