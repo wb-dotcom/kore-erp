@@ -123,7 +123,7 @@ class DashboardController extends Controller
         // Monthly revenue (last 6 months)
         $monthlyRevenue = DB::table('invoices')
             ->where('status', 'paid')
-            ->where('paid_date', '>=', now()->subMonths(6))
+            ->where('paid_at', '>=', now()->subMonths(6))
             ->select(
                 DB::raw("TO_CHAR(paid_at, 'YYYY-MM') as month"),
                 DB::raw('SUM(total) as total')

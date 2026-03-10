@@ -15,8 +15,8 @@ class ApprovalController extends Controller
     public function index()
     {
         $pendingTimesheets = Timesheet::where('status', 'submitted')->count();
-        $pendingTimeOff    = TimeOffRequest::where('status', 'pending')->where('type', '!=', 'remote_work')->count();
-        $pendingRemoteWork = TimeOffRequest::where('status', 'pending')->where('type', 'remote_work')->count();
+        $pendingTimeOff    = TimeOffRequest::where('status', 'pending')->where('request_type', '!=', 'remote_work')->count();
+        $pendingRemoteWork = TimeOffRequest::where('status', 'pending')->where('request_type', 'remote_work')->count();
         $pendingExpenses   = ExpenseRequest::where('status', 'pending')->count();
 
         return view('approvals.index', compact('pendingTimesheets', 'pendingTimeOff', 'pendingRemoteWork', 'pendingExpenses'));
@@ -65,7 +65,7 @@ class ApprovalController extends Controller
         // Remote work requests use the time_off_requests table with type='remote_work'
         $query = TimeOffRequest::with('user')
             ->where('status', 'pending')
-            ->where('type', 'remote_work')
+            ->where('request_type', 'remote_work')
             ->orderBy('created_at');
 
         $requests = $query->paginate(25)->withQueryString();
