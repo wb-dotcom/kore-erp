@@ -262,7 +262,7 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($defaults as $key => $value) {
-            SystemSetting::firstOrCreate(['key' => $key], ['key' => $key, 'value' => $value]);
+            SystemSetting::firstOrCreate(['setting_key' => $key], ['setting_key' => $key, 'setting_value' => $value]);
         }
 
         $this->command->line('  ✓ System settings seeded (' . count($defaults) . ' keys)');
