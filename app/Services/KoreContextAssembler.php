@@ -42,6 +42,7 @@ class KoreContextAssembler
         $firmName = SystemSetting::get('company_name', config('kore.company_name', 'the firm'));
         $today    = now()->format(config('kore.date_format', 'M d, Y'));
         $currency = config('kore.currency_symbol', '$');
+        $roleName = $user->role?->name ?? 'Staff';
 
         return <<<PROMPT
 You are Kore AI, the intelligent assistant for {$firmName}'s project management system (Kore ERP).
@@ -66,7 +67,7 @@ RESPONSE GUIDELINES:
 - For analysis requests, compare actual vs. planned and identify the delta.
 
 CURRENCY: {$currency} | DATE FORMAT: {$today} (this is today's date)
-CURRENT USER: {$user->full_name} | ROLE: {$user->role ?? 'Staff'}
+CURRENT USER: {$user->full_name} | ROLE: {$roleName}
 PROMPT;
     }
 
