@@ -632,7 +632,7 @@
 const CONVERSATION_ID = {{ $conversation->id }};
 const CHAT_URL        = '{{ route('ai.chat', $conversation) }}';
 const UPDATE_URL      = '{{ route('ai.update', $conversation) }}';
-const MODELS_URL      = '{{ route('ai.api.models') }}';
+const MODELS_URL      = '{{ route('api.ai.models') }}';
 const CSRF_TOKEN      = document.querySelector('meta[name="csrf-token"]').content;
 
 let selectedModel = '{{ $conversation->model }}';
