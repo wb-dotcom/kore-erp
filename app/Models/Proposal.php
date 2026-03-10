@@ -30,12 +30,18 @@ class Proposal extends Model
         'payment_terms_days',
         'notes',
         'created_by',
+        // Phase 1.5: proposal builder
+        'executive_summary',
+        'scope_of_work',
+        'terms_and_conditions',
+        'total_fee',
     ];
 
     protected $casts = [
         'submitted_date'     => 'date',
         'approved_date'      => 'date',
         'payment_terms_days' => 'integer',
+        'total_fee'          => 'float',
     ];
 
     // ── Relationships ──────────────────────────────────────────────────────────
@@ -82,6 +88,12 @@ class Proposal extends Model
     public function rateSchedules(): HasMany
     {
         return $this->hasMany(ProposalRateSchedule::class, 'proposal_id');
+    }
+
+    /** Phase 1.5: fee worksheet line items. */
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(ProposalLineItem::class, 'proposal_id')->orderBy('sort_order');
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

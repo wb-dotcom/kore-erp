@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -69,6 +70,12 @@ class ProjectDocument extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** Phase 3: RAG chunks derived from this document. */
+    public function chunks(): HasMany
+    {
+        return $this->hasMany(DocumentChunk::class, 'project_document_id')->orderBy('chunk_index');
     }
 
     // ── File Access ────────────────────────────────────────────────────────────

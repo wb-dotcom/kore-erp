@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\IndexProjectDocument;
 use App\Models\Project;
 use App\Models\ProjectCommunication;
 use App\Models\ProjectDocument;
@@ -183,6 +184,13 @@ class InboundEmailService
             'path'        => $path,
             'size'        => $document->file_size_bytes,
         ]);
+
+        // Phase 3: queue RAG indexing for text-extractable documents.
+        // The job runs on a separate queue ('indexing') so heavy PDF work
+        // doesn't block normal email processing.
+        if ($document->isTextExtractable()) {
+            IndexProjectDocument::dispatch($document->id)->onQueue('indexing');
+        }
 
         return $document;
     }

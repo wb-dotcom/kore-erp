@@ -21,6 +21,18 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // ── Google Workspace (Phase 1.5 — Proposal Export) ──────────────────────
+    // Requires: composer require google/apiclient:^2.15
+    // Docs: https://developers.google.com/docs/api/quickstart/php
+    'google' => [
+        // Path to the service account JSON key (relative to project root)
+        'service_account_path' => env('GOOGLE_SERVICE_ACCOUNT_PATH', 'storage/app/google-service-account.json'),
+        // Optional: email to impersonate (Domain-Wide Delegation)
+        'delegate_email'       => env('GOOGLE_DELEGATE_EMAIL'),
+        // Google Drive folder ID where proposals are created
+        'proposals_folder_id'  => env('GOOGLE_PROPOSALS_FOLDER_ID'),
+    ],
+
     // ── Ollama (Phase 3 — Local LLM) ────────────────────────────────────────
     'ollama' => [
         'host'        => env('OLLAMA_HOST', 'http://host.docker.internal:11434'),
