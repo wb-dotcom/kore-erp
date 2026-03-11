@@ -2,6 +2,8 @@
 
 @section('content')
 
+@php $isApproved = $proposal->isApproved(); @endphp
+
 {{-- Page Header --}}
 <div class="d-flex align-items-center gap-3 mb-3">
     <a href="{{ route('proposals.index') }}" class="btn btn-sm btn-outline-secondary">
@@ -29,10 +31,14 @@
         <a href="{{ route('proposals.edit', $proposal) }}" class="btn btn-sm btn-outline-primary">
             <i class="bi bi-pencil me-1"></i> Edit
         </a>
-        @if(!$proposal->project)
+        @if(!$proposal->project && $isApproved)
         <a href="{{ route('projects.create') }}?proposal_id={{ $proposal->id }}" class="btn btn-sm btn-success">
             <i class="bi bi-folder-plus me-1"></i> Convert to Project
         </a>
+        @elseif(!$proposal->project && !$isApproved)
+        <span class="btn btn-sm btn-outline-secondary disabled" title="Proposal must be Approved before converting to a project">
+            <i class="bi bi-lock me-1"></i> Convert to Project
+        </span>
         @endif
     </div>
 </div>
@@ -179,10 +185,14 @@
                 <a href="{{ route('proposals.edit', $proposal) }}" class="btn btn-outline-primary btn-sm w-100 mb-2">
                     <i class="bi bi-pencil me-1"></i> Edit Proposal
                 </a>
-                @if(!$proposal->project)
+                @if(!$proposal->project && $isApproved)
                 <a href="{{ route('projects.create') }}?proposal_id={{ $proposal->id }}" class="btn btn-success btn-sm w-100 mb-2">
                     <i class="bi bi-folder-plus me-1"></i> Convert to Project
                 </a>
+                @elseif(!$proposal->project && !$isApproved)
+                <span class="btn btn-outline-secondary btn-sm w-100 mb-2 disabled" title="Proposal must be Approved first">
+                    <i class="bi bi-lock me-1"></i> Convert to Project
+                </span>
                 @else
                 <a href="{{ route('projects.show', $proposal->project) }}" class="btn btn-outline-secondary btn-sm w-100 mb-2">
                     <i class="bi bi-folder2-open me-1"></i> View Project
@@ -201,12 +211,19 @@
             <div class="kore-card mb-3">
                 <div class="kore-card-header">
                     <h5><i class="bi bi-currency-dollar me-1"></i>Rate Overrides</h5>
+                    @if(!$isApproved)
                     <button type="button" class="btn btn-sm btn-outline-secondary"
                         onclick="document.getElementById('addRateOverrideForm').classList.toggle('d-none')"
                         style="font-size:0.7rem; padding:2px 8px;">
                         <i class="bi bi-plus-sm"></i>
                     </button>
+                    @endif
                 </div>
+                @if($isApproved)
+                <div class="kore-alert kore-alert-info mb-2" style="font-size:0.75rem;">
+                    <i class="bi bi-lock me-1"></i> Locked — rates are fixed on an approved proposal.
+                </div>
+                @else
                 <form id="addRateOverrideForm" action="{{ route('proposals.rate-schedules.store', $proposal) }}" method="POST" class="d-none mb-3">
                     @csrf
                     <div class="row g-2">
@@ -226,11 +243,13 @@
                     </div>
                     <input type="hidden" name="scope" value="role">
                 </form>
+                @endif
                 @forelse($proposal->rateSchedules as $rs)
                 <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                     <span style="font-size:0.75rem;">{{ $rs->scope_value }}</span>
                     <div class="d-flex align-items-center gap-2">
                         <span style="font-size:0.75rem; font-weight:600;">${{ number_format($rs->hourly_rate, 0) }}/hr</span>
+                        @if(!$isApproved)
                         <form action="{{ route('proposals.rate-schedules.destroy', [$proposal, $rs]) }}" method="POST"
                             onsubmit="return confirm('Remove this rate override?')" class="d-inline">
                             @csrf @method('DELETE')
@@ -238,6 +257,7 @@
                                 <i class="bi bi-x-lg" style="font-size:0.7rem;"></i>
                             </button>
                         </form>
+                        @endif
                     </div>
                 </div>
                 @empty
@@ -411,10 +431,21 @@
     <div class="kore-card">
         <div class="kore-card-header">
             <h5><i class="bi bi-table me-2"></i>Fee Worksheet</h5>
+            @if($isApproved)
+            <span class="badge bg-warning text-dark" style="font-size:0.7rem;">
+                <i class="bi bi-lock me-1"></i> Locked — Approved
+            </span>
+            @else
             <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addLineItemModal">
                 <i class="bi bi-plus-lg me-1"></i> Add Line Item
             </button>
+            @endif
         </div>
+        @if($isApproved)
+        <div class="kore-alert kore-alert-info mb-3" style="font-size:0.8rem;">
+            <i class="bi bi-lock me-1"></i> <strong>Fee worksheet is locked.</strong> Hours and rates are fixed once a proposal is approved. To make changes, edit the full proposal.
+        </div>
+        @endif
 
         <div id="feeWorksheetContainer">
             <div class="text-center py-4 text-muted" id="feeLoadingMsg">

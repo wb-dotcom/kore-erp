@@ -336,13 +336,10 @@
         </button>
         <a href="{{ route('proposals.show', $proposal) }}" class="btn btn-outline-secondary w-100 mb-3">Cancel</a>
         <hr class="my-2">
-        <form action="{{ route('proposals.destroy', $proposal) }}" method="POST"
-            onsubmit="return confirm('Permanently delete this proposal?')">
-            @csrf @method('DELETE')
-            <button type="submit" class="btn btn-outline-danger w-100 btn-sm">
-                <i class="bi bi-trash me-1"></i> Delete Proposal
-            </button>
-        </form>
+        <button type="button" class="btn btn-outline-danger w-100 btn-sm"
+            onclick="if(confirm('Permanently delete this proposal?')) document.getElementById('deleteProposalForm').submit()">
+            <i class="bi bi-trash me-1"></i> Delete Proposal
+        </button>
     </div>
 
     <div class="kore-card mb-4">
@@ -370,6 +367,11 @@
 </div>{{-- /col-lg-4 --}}
 
 </div>{{-- /row --}}
+</form>
+
+{{-- Standalone delete form — must be OUTSIDE the main form to avoid nested form issues --}}
+<form id="deleteProposalForm" action="{{ route('proposals.destroy', $proposal) }}" method="POST" class="d-none">
+    @csrf @method('DELETE')
 </form>
 
 @push('styles')

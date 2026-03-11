@@ -151,6 +151,11 @@ class Proposal extends Model
         return (float) (($this->contract_value ?? $this->total_fee ?? 0) - ($this->expenses_reserve ?? 0));
     }
 
+    public function isApproved(): bool
+    {
+        return strtolower($this->status?->name ?? '') === 'approved';
+    }
+
     public function isTimeAndMaterial(): bool
     {
         return in_array($this->billing_type, ['time_and_material', 'hybrid']);

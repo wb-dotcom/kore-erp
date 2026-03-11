@@ -47,6 +47,10 @@ class ProposalLineItemController extends Controller
 
     public function store(Request $request, Proposal $proposal): JsonResponse
     {
+        if ($proposal->isApproved()) {
+            return response()->json(['error' => 'Fee worksheet is locked — proposal is approved.'], 403);
+        }
+
         $data = $request->validate([
             'phase_code'      => ['required', 'string', 'max:50'],
             'phase_label'     => ['nullable', 'string', 'max:100'],
@@ -72,6 +76,10 @@ class ProposalLineItemController extends Controller
     {
         $this->authoriseItem($proposal, $item);
 
+        if ($proposal->isApproved()) {
+            return response()->json(['error' => 'Fee worksheet is locked — proposal is approved.'], 403);
+        }
+
         $data = $request->validate([
             'phase_code'      => ['sometimes', 'string', 'max:50'],
             'phase_label'     => ['nullable', 'string', 'max:100'],
@@ -96,6 +104,10 @@ class ProposalLineItemController extends Controller
     public function destroy(Proposal $proposal, ProposalLineItem $item): JsonResponse
     {
         $this->authoriseItem($proposal, $item);
+
+        if ($proposal->isApproved()) {
+            return response()->json(['error' => 'Fee worksheet is locked — proposal is approved.'], 403);
+        }
 
         $this->calculator->removeLineItem($item);
 
@@ -155,6 +167,10 @@ class ProposalLineItemController extends Controller
      */
     public function storeRateSchedule(Request $request, Proposal $proposal): RedirectResponse
     {
+        if ($proposal->isApproved()) {
+            return back()->with('error', 'Rate overrides are locked — proposal is approved.');
+        }
+
         $data = $request->validate([
             'scope'       => ['required', 'in:role,work_type,phase'],
             'scope_value' => ['required', 'string', 'max:100'],
@@ -180,6 +196,10 @@ class ProposalLineItemController extends Controller
     {
         if ($rateSchedule->proposal_id !== $proposal->id) {
             abort(403);
+        }
+
+        if ($proposal->isApproved()) {
+            return back()->with('error', 'Rate overrides are locked — proposal is approved.');
         }
 
         $rateSchedule->delete();

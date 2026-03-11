@@ -54,15 +54,18 @@
                         </select>
                     </div>
                     <div class="col-sm-6">
-                        <label class="form-label">Linked Proposal</label>
-                        <select name="proposal_id" class="form-select form-select-sm">
-                            <option value="">— None —</option>
+                        <label class="form-label">Approved Proposal <span class="text-danger">*</span></label>
+                        <select name="proposal_id" class="form-select form-select-sm" required>
+                            <option value="">— Select Approved Proposal —</option>
                             @foreach($proposals as $p)
-                            <option value="{{ $p->id }}" {{ old('proposal_id') == $p->id ? 'selected' : '' }}>
+                            <option value="{{ $p->id }}" {{ (old('proposal_id', request('proposal_id')) == $p->id) ? 'selected' : '' }}>
                                 {{ $p->year }}-{{ $p->proposal_number }} — {{ $p->title }}
                             </option>
                             @endforeach
                         </select>
+                        <div class="form-text" style="font-size:0.68rem; color:#6b7280;">
+                            <i class="bi bi-info-circle me-1"></i>Only approved proposals without an existing project are listed.
+                        </div>
                     </div>
                     <div class="col-sm-4">
                         <label class="form-label">Project Type</label>
@@ -125,8 +128,8 @@
         <div class="col-lg-4">
             <div class="kore-card mb-4" style="font-size:0.8rem; color:#6b7280;">
                 <div class="fw-600 mb-2" style="color:#374151;">About Projects</div>
-                <p class="mb-2">After creating the project, use the <strong>Deliverables</strong> tab to set up the work breakdown structure.</p>
-                <p class="mb-0">Link to a proposal to track conversion from business development to active work.</p>
+                <p class="mb-2">Every project must be linked to an <strong>approved proposal</strong>. The proposal is the brain of the system — it defines rates, deliverables, and billing terms that drive timesheets and invoices.</p>
+                <p class="mb-0">After creating the project, use the <strong>Deliverables</strong> tab to set up the work breakdown structure.</p>
             </div>
         </div>
     </div>

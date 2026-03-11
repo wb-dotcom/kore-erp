@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectStatus;
 use App\Models\ProjectType;
 use App\Models\Proposal;
+use App\Models\ProposalStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -55,7 +56,10 @@ class ProjectController extends Controller
         $statuses     = ProjectStatus::orderBy('name')->get();
         $projectTypes = ProjectType::orderBy('name')->get();
         $managers     = User::where('is_active', 1)->orderBy('first_name')->get();
+
+        $approvedStatusId = ProposalStatus::whereRaw('LOWER(name) = ?', ['approved'])->value('id');
         $proposals    = Proposal::whereDoesntHave('project')
+                            ->where('status_id', $approvedStatusId)
                             ->orderByDesc('year')
                             ->orderByDesc('proposal_number')
                             ->get();
@@ -79,12 +83,21 @@ class ProjectController extends Controller
             'project_manager_id' => ['nullable', 'exists:users,id'],
             'project_type_id'    => ['nullable', 'exists:project_types,id'],
             'status_id'          => ['required', 'exists:project_statuses,id'],
-            'proposal_id'        => ['nullable', 'exists:proposals,id'],
+            'proposal_id'        => ['required', 'exists:proposals,id'],
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
             'total_budget'       => ['nullable', 'numeric', 'min:0'],
             'notes'              => ['nullable', 'string'],
         ]);
+
+        $proposal = Proposal::with('status')->find($data['proposal_id']);
+        if (!$proposal->isApproved()) {
+            return back()->withInput()->with('error', 'A project can only be created from an approved proposal.');
+        }
+
+        if ($proposal->project()->exists()) {
+            return back()->withInput()->with('error', 'This proposal already has a project linked to it.');
+        }
 
         $data['created_by'] = auth()->id();
 
@@ -121,8 +134,13 @@ class ProjectController extends Controller
         $statuses     = ProjectStatus::orderBy('name')->get();
         $projectTypes = ProjectType::orderBy('name')->get();
         $managers     = User::where('is_active', 1)->orderBy('first_name')->get();
-        $proposals    = Proposal::whereDoesntHave('project')
-                            ->orWhere('id', $project->proposal_id)
+
+        $approvedStatusId = ProposalStatus::whereRaw('LOWER(name) = ?', ['approved'])->value('id');
+        $proposals    = Proposal::where('status_id', $approvedStatusId)
+                            ->where(function ($q) use ($project) {
+                                $q->whereDoesntHave('project')
+                                  ->orWhere('id', $project->proposal_id);
+                            })
                             ->orderByDesc('year')
                             ->orderByDesc('proposal_number')
                             ->get();
