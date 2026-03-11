@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Region;
 use App\Models\Sector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class CompanyController extends Controller
 {
@@ -117,6 +118,73 @@ class CompanyController extends Controller
 
         return redirect()->route('companies.show', $company)
             ->with('success', 'Company updated successfully.');
+    }
+
+    public function nominatimSearch(Request $request)
+    {
+        $q = trim($request->get('q', ''));
+
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $response = Http::timeout(5)
+            ->withHeaders([
+                'User-Agent'      => 'KoreERP/1.0 (internal company management tool)',
+                'Accept-Language' => 'en',
+            ])
+            ->get('https://nominatim.openstreetmap.org/search', [
+                'q'              => $q,
+                'format'         => 'json',
+                'addressdetails' => 1,
+                'extratags'      => 1,
+                'limit'          => 7,
+            ]);
+
+        if (! $response->successful()) {
+            return response()->json([]);
+        }
+
+        $results = collect($response->json())->map(function ($item) {
+            $addr  = $item['address'] ?? [];
+            $extra = $item['extratags'] ?? [];
+
+            $houseNumber  = $addr['house_number'] ?? '';
+            $road         = $addr['road'] ?? $addr['pedestrian'] ?? '';
+            $addressLine1 = trim("$houseNumber $road") ?: null;
+
+            $city = $addr['city'] ?? $addr['town'] ?? $addr['village'] ?? $addr['county'] ?? null;
+
+            $name = $item['name']
+                ?? $addr['amenity']
+                ?? $addr['shop']
+                ?? $addr['office']
+                ?? null;
+
+            $phone   = $extra['phone'] ?? $extra['contact:phone'] ?? null;
+            $website = $extra['website'] ?? $extra['contact:website'] ?? null;
+
+            // Normalise website: ensure it starts with http(s)
+            if ($website && ! preg_match('#^https?://#i', $website)) {
+                $website = 'https://' . $website;
+            }
+
+            return [
+                'display_name'  => $item['display_name'] ?? '',
+                'name'          => $name,
+                'address_line1' => $addressLine1,
+                'city'          => $city,
+                'state'         => $addr['state'] ?? null,
+                'zip'           => $addr['postcode'] ?? null,
+                'country'       => $addr['country'] ?? null,
+                'phone'         => $phone,
+                'website'       => $website,
+                'type'          => $item['type'] ?? null,
+                'class'         => $item['class'] ?? null,
+            ];
+        })->values();
+
+        return response()->json($results);
     }
 
     public function destroy(Company $company)

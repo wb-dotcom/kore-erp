@@ -154,6 +154,7 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::get('/projects/{project}/deliverables', [ProjectController::class, 'apiDeliverables'])->name('project.deliverables');
         Route::get('/deliverables/{deliverable}/milestones', [ProjectController::class, 'apiMilestones'])->name('deliverable.milestones');
         Route::get('/milestones/{milestone}/tasks', [ProjectController::class, 'apiTasks'])->name('milestone.tasks');
+        Route::get('/company-enrichment', [CompanyController::class, 'nominatimSearch'])->name('company.enrichment');
         Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart');
         Route::get('/schedule/gantt',       [ScheduleController::class, 'ganttData'])->name('schedule.gantt');
         // Kore AI API

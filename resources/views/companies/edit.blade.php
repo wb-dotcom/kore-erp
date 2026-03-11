@@ -26,8 +26,9 @@
                 <div class="row g-3">
                     <div class="col-sm-8">
                         <label class="form-label">Company Name <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control form-control-sm"
-                            value="{{ old('name', $company->name) }}" required>
+                        <input type="text" id="companyName" name="name" class="form-control form-control-sm"
+                            value="{{ old('name', $company->name) }}" required
+                            placeholder="Type to search & auto-fill address…" autocomplete="off">
                     </div>
                     <div class="col-sm-4">
                         <label class="form-label">Active</label>
@@ -115,5 +116,7 @@
         <a href="{{ route('companies.show', $company) }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
     </div>
 </form>
+
+@include('companies._enrichment')
 
 @endsection
