@@ -13,6 +13,8 @@ use App\Models\ProposalStatus;
 use App\Models\Sector;
 use App\Models\User;
 use App\Models\WorkType;
+use App\Services\ProposalSimilarityService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -178,6 +180,35 @@ class ProposalController extends Controller
 
         return redirect()->route('proposals.show', $proposal)
             ->with('success', "Proposal {$proposal->ref} updated successfully.");
+    }
+
+    /**
+     * GET /proposals/{proposal}/similar
+     * Returns JSON: list of similar prior proposals with similarity scores and deliverable overlap.
+     */
+    public function similar(Proposal $proposal, ProposalSimilarityService $similarity): JsonResponse
+    {
+        $proposal->load(['company', 'sector', 'workType', 'projectType', 'deliverables']);
+
+        $results = $similarity->findSimilar($proposal);
+
+        return response()->json([
+            'similar' => $results->map(fn ($r) => [
+                'id'                  => $r['proposal']->id,
+                'ref'                 => $r['proposal']->ref,
+                'title'               => $r['proposal']->title,
+                'company'             => $r['proposal']->company?->name,
+                'sector'              => $r['proposal']->sector?->name,
+                'work_type'           => $r['proposal']->workType?->name,
+                'status'              => $r['proposal']->status?->name,
+                'year'                => $r['proposal']->year,
+                'contract_value'      => $r['proposal']->contract_value ?? $r['proposal']->total_fee,
+                'deliverable_count'   => $r['proposal']->deliverables->count(),
+                'score'               => $r['score'],
+                'match_reasons'       => $r['match_reasons'],
+                'deliverable_overlap' => $r['deliverable_overlap'],
+            ])->values(),
+        ]);
     }
 
     public function destroy(Proposal $proposal)

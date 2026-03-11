@@ -245,6 +245,21 @@
                 @endforelse
             </div>
 
+            {{-- Similar Prior Proposals --}}
+            <div class="kore-card mb-3" id="similarProposalsCard">
+                <div class="kore-card-header">
+                    <h5><i class="bi bi-intersect me-2"></i>Similar Prior Proposals</h5>
+                    <button type="button" class="btn btn-link p-0" style="font-size:0.72rem; color:#6b7280;" onclick="loadSimilarProposals()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div id="similarProposalsList">
+                    <div class="text-center py-3 text-muted" style="font-size:0.8rem;">
+                        <div class="spinner-border spinner-border-sm me-1"></div> Scanning prior proposals…
+                    </div>
+                </div>
+            </div>
+
             {{-- Meta --}}
             <div class="kore-card">
                 <div class="kore-card-header"><h5>Info</h5></div>
@@ -577,6 +592,9 @@
                 </ul>
             </div>
             @endif
+            <button type="button" class="btn btn-sm btn-outline-info" onclick="openImportFromProposalModal()">
+                <i class="bi bi-intersect me-1"></i> Import from Prior Proposal
+            </button>
             <button type="button" class="btn btn-sm btn-primary" onclick="showAddDeliverableModal()">
                 <i class="bi bi-plus-lg me-1"></i> Add Deliverable
             </button>
@@ -783,6 +801,68 @@
     </div>
 </div>
 
+{{-- ══════════════════════════════════════════════════════════════════════════ --}}
+{{-- MODAL: Import from Prior Proposal                                        --}}
+{{-- ══════════════════════════════════════════════════════════════════════════ --}}
+<div class="modal fade" id="importFromProposalModal" tabindex="-1" aria-labelledby="importProposalModalLabel">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importProposalModalLabel">
+                    <i class="bi bi-intersect me-2"></i>Import Deliverables from Prior Proposal
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                {{-- Step 1: Choose source proposal --}}
+                <div id="importStep1" class="p-3">
+                    <div class="d-flex gap-2 mb-3 align-items-center">
+                        <div class="flex-grow-1">
+                            <input type="text" id="importProposalSearch" class="form-control form-control-sm"
+                                placeholder="Search by proposal ref, title, or client…" oninput="filterImportProposals()">
+                        </div>
+                        <span id="importLoadingSpinner" class="text-muted" style="font-size:0.78rem; white-space:nowrap;">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Loading…
+                        </span>
+                    </div>
+                    <div id="importProposalsList" style="max-height:420px; overflow-y:auto;">
+                        {{-- Populated by JS --}}
+                    </div>
+                </div>
+
+                {{-- Step 2: Pick deliverables from the selected proposal --}}
+                <div id="importStep2" class="d-none">
+                    <div class="bg-light border-bottom px-3 py-2 d-flex align-items-center gap-2" style="font-size:0.82rem;">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-secondary" onclick="importGoBack()">
+                            <i class="bi bi-arrow-left me-1"></i> Back
+                        </button>
+                        <span id="importStep2Title" class="fw-600"></span>
+                    </div>
+
+                    <div class="px-3 pt-2 pb-1 d-flex gap-2 align-items-center" style="font-size:0.8rem;">
+                        <button type="button" class="btn btn-link btn-sm p-0" onclick="importSelectAll()">Select All</button>
+                        &nbsp;/&nbsp;
+                        <button type="button" class="btn btn-link btn-sm p-0" onclick="importSelectNone()">None</button>
+                        <span class="ms-auto text-muted" id="importDupeWarning" style="font-size:0.75rem;"></span>
+                    </div>
+
+                    <div id="importDeliverableList" class="px-3 pb-3" style="max-height:400px; overflow-y:auto;">
+                        {{-- Populated by JS --}}
+                    </div>
+
+                    <div id="importMsg" class="mx-3 mb-2 alert alert-info d-none" style="font-size:0.82rem;"></div>
+                </div>
+            </div>
+            <div class="modal-footer" id="importModalFooter">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="importConfirmBtn" onclick="doImportFromProposal()">
+                    <i class="bi bi-box-arrow-in-down me-1"></i> Import Selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('styles')
 <style>
 .nav-tabs .nav-link { font-size:0.82rem; color:#6b7280; border:none; padding:10px 16px; border-radius:0; }
@@ -805,6 +885,17 @@
 /* Billing periods table */
 .billing-period-row { display:grid; grid-template-columns:130px 130px 1fr 1fr 1fr 120px 120px 60px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6; font-size:0.8rem; }
 .billing-period-row.header { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:#9ca3af; letter-spacing:0.5px; padding-bottom:6px; border-bottom:2px solid #e5e7eb; }
+
+/* Similar proposals card */
+.similar-proposal-row { display:flex; flex-direction:column; gap:2px; padding:8px 0; border-bottom:1px solid #f3f4f6; cursor:pointer; }
+.similar-proposal-row:last-child { border-bottom:none; }
+.similar-proposal-row:hover { background:#f8fafc; border-radius:4px; padding-left:4px; }
+.sim-score-bar { height:4px; border-radius:2px; background:#3b82f6; transition:width 0.3s; }
+.sim-reason-chip { display:inline-block; font-size:0.62rem; padding:1px 5px; border-radius:3px; background:#eff6ff; color:#3b82f6; margin-right:3px; }
+.import-deliverable-row { padding:8px; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:6px; }
+.import-deliverable-row.is-duplicate { border-color:#fbbf24; background:#fffbeb; }
+.import-deliverable-row.is-duplicate .dupe-badge { display:inline-block; font-size:0.62rem; padding:1px 5px; border-radius:3px; background:#fef3c7; color:#92400e; margin-left:6px; }
+.import-deliverable-row .dupe-badge { display:none; }
 </style>
 @endpush
 
@@ -818,6 +909,7 @@ const LINE_ITEMS_URL = BASE_URL + '/line-items';
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadWorksheet();
+    loadSimilarProposals();
 
     // Load activities when tab is shown
     document.querySelector('[data-bs-target="#tab-activities"]')?.addEventListener('shown.bs.tab', () => {
@@ -1307,6 +1399,248 @@ async function copyFromTemplate(templateId, templateName) {
         loadActivities();
     } else {
         alert('Failed to copy template.');
+    }
+}
+
+// ── Similar Proposals (Dashboard sidebar) ─────────────────────────────────────
+let _similarData = [];
+
+async function loadSimilarProposals() {
+    const container = document.getElementById('similarProposalsList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.8rem;"><span class="spinner-border spinner-border-sm me-1"></span> Scanning…</div>';
+
+    try {
+        const res  = await fetch(`${BASE_URL}/similar`);
+        const data = await res.json();
+        _similarData = data.similar ?? [];
+
+        if (_similarData.length === 0) {
+            container.innerHTML = '<div class="text-muted py-2" style="font-size:0.78rem;">No similar prior proposals found.</div>';
+            return;
+        }
+
+        container.innerHTML = _similarData.map(p => {
+            const overlap = p.deliverable_overlap;
+            const overlapPct = overlap?.similarity_pct ?? 0;
+            const matchedCount = (overlap?.matched ?? []).length;
+            const reasons = (p.match_reasons ?? []).map(r =>
+                `<span class="sim-reason-chip">${esc(r.label)}</span>`
+            ).join('');
+            const dupeNote = matchedCount > 0
+                ? `<span class="text-warning" style="font-size:0.68rem;">⚠ ${matchedCount} overlapping deliverable${matchedCount > 1 ? 's' : ''}</span>`
+                : '';
+
+            return `<div class="similar-proposal-row" onclick="importFromSimilar(${p.id})" title="Click to import deliverables from this proposal">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span style="font-size:0.78rem; font-weight:600; color:#111827;">${esc(p.ref)}</span>
+                        <span style="font-size:0.72rem; color:#6b7280; margin-left:6px;">${esc(p.title)}</span>
+                    </div>
+                    <span style="font-size:0.68rem; color:#6b7280;">${p.deliverable_count} deliverable${p.deliverable_count !== 1 ? 's' : ''}</span>
+                </div>
+                <div style="font-size:0.7rem; color:#9ca3af;">
+                    ${p.company ? esc(p.company) + ' &mdash; ' : ''}${p.status ?? ''}
+                    ${p.contract_value ? ' &mdash; $' + Number(p.contract_value).toLocaleString('en-US', {maximumFractionDigits:0}) : ''}
+                </div>
+                <div class="mt-1">${reasons} ${dupeNote}</div>
+                <div class="mt-1" style="background:#f3f4f6; border-radius:2px; height:4px; width:100%;">
+                    <div class="sim-score-bar" style="width:${Math.min(p.score, 100)}%;"></div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="text-muted py-2" style="font-size:0.78rem;">Could not load similar proposals.</div>';
+    }
+}
+
+// ── Import from Prior Proposal (Activities tab) ───────────────────────────────
+let _allImportProposals = [];
+let _selectedSourceId   = null;
+
+async function openImportFromProposalModal() {
+    _selectedSourceId = null;
+    document.getElementById('importStep1').classList.remove('d-none');
+    document.getElementById('importStep2').classList.add('d-none');
+    document.getElementById('importConfirmBtn').classList.add('d-none');
+    document.getElementById('importProposalSearch').value = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('importFromProposalModal'));
+    modal.show();
+
+    if (_allImportProposals.length === 0) {
+        // Load similar first, then fall back to all proposals
+        try {
+            if (_similarData.length > 0) {
+                _allImportProposals = _similarData;
+            } else {
+                const res  = await fetch(`${BASE_URL}/similar`);
+                const data = await res.json();
+                _allImportProposals = data.similar ?? [];
+            }
+        } catch { _allImportProposals = []; }
+    }
+
+    document.getElementById('importLoadingSpinner').style.display = 'none';
+    renderImportProposalList(_allImportProposals);
+}
+
+function filterImportProposals() {
+    const q = document.getElementById('importProposalSearch').value.toLowerCase();
+    const filtered = _allImportProposals.filter(p =>
+        (p.ref ?? '').toLowerCase().includes(q) ||
+        (p.title ?? '').toLowerCase().includes(q) ||
+        (p.company ?? '').toLowerCase().includes(q)
+    );
+    renderImportProposalList(filtered);
+}
+
+function renderImportProposalList(list) {
+    const el = document.getElementById('importProposalsList');
+    if (list.length === 0) {
+        el.innerHTML = '<div class="text-muted py-3 text-center" style="font-size:0.82rem;">No proposals found. Try a different search term or go directly to another proposal to import from there.</div>';
+        return;
+    }
+    el.innerHTML = list.map(p => {
+        const matched = (p.deliverable_overlap?.matched ?? []).length;
+        const dupeWarning = matched > 0 ? `<span class="text-warning ms-2" style="font-size:0.68rem;">⚠ ${matched} duplicate${matched > 1 ? 's' : ''}</span>` : '';
+        return `<div class="d-flex align-items-center gap-3 py-2 px-2 border-bottom" style="cursor:pointer;" onclick="loadImportStep2(${p.id}, '${esc(p.ref)} — ${esc(p.title)}')">
+            <div class="flex-grow-1">
+                <div style="font-size:0.82rem; font-weight:600;">${esc(p.ref)} <span style="font-weight:400; color:#6b7280;">${esc(p.title)}</span></div>
+                <div style="font-size:0.72rem; color:#9ca3af;">${p.company ? esc(p.company) + ' — ' : ''}${p.status ?? ''} &nbsp;|&nbsp; ${p.deliverable_count ?? 0} deliverables${dupeWarning}</div>
+            </div>
+            <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+        </div>`;
+    }).join('');
+}
+
+async function importFromSimilar(proposalId) {
+    // Called from the dashboard similar card — opens the modal pre-loaded to step 2
+    openImportFromProposalModal();
+    // Give modal time to render
+    setTimeout(() => {
+        const p = _similarData.find(x => x.id === proposalId);
+        if (p) loadImportStep2(p.id, `${p.ref} — ${p.title}`);
+    }, 350);
+}
+
+async function loadImportStep2(sourceId, label) {
+    _selectedSourceId = sourceId;
+    document.getElementById('importStep2Title').textContent = label;
+    document.getElementById('importStep1').classList.add('d-none');
+    document.getElementById('importStep2').classList.remove('d-none');
+    document.getElementById('importConfirmBtn').classList.remove('d-none');
+
+    const listEl    = document.getElementById('importDeliverableList');
+    const dupeWarn  = document.getElementById('importDupeWarning');
+    const msgEl     = document.getElementById('importMsg');
+    msgEl.classList.add('d-none');
+    listEl.innerHTML = '<div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Loading deliverables…</div>';
+
+    try {
+        const res  = await fetch(`${BASE_URL}/deliverables/prior/${sourceId}`);
+        const data = await res.json();
+
+        const dupeCount = (data.duplicate_names ?? []).length;
+        const newCount  = (data.new_names ?? []).length;
+
+        dupeWarn.innerHTML = dupeCount > 0
+            ? `<span class="text-warning">⚠ ${dupeCount} deliverable${dupeCount > 1 ? 's' : ''} already exist in this proposal (shown in yellow)</span>`
+            : `<span class="text-success">No duplicates detected</span>`;
+
+        if (!data.deliverables || data.deliverables.length === 0) {
+            listEl.innerHTML = '<div class="text-muted py-3 text-center" style="font-size:0.82rem;">This proposal has no deliverables.</div>';
+            return;
+        }
+
+        listEl.innerHTML = data.deliverables.map(d => {
+            const isDupe = d.is_duplicate;
+            const actCount = (d.activities ?? []).length;
+            const totalHours = (d.activities ?? []).reduce((sum, a) => sum + (a.budgeted_hours ?? 0), 0);
+            return `<div class="import-deliverable-row${isDupe ? ' is-duplicate' : ''}">
+                <div class="d-flex align-items-center gap-2">
+                    <input type="checkbox" class="import-deliverable-cb" value="${d.id}"
+                        id="idcb_${d.id}" ${isDupe ? '' : 'checked'}>
+                    <label for="idcb_${d.id}" style="font-size:0.82rem; font-weight:600; cursor:pointer; margin:0;">
+                        ${esc(d.name)}
+                        <span class="dupe-badge">Already exists</span>
+                    </label>
+                </div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:2px; padding-left:22px;">
+                    ${actCount} activit${actCount === 1 ? 'y' : 'ies'}
+                    ${totalHours > 0 ? ' &nbsp;·&nbsp; ' + totalHours + ' hrs' : ''}
+                    ${d.description ? ' &nbsp;·&nbsp; ' + esc(d.description.substring(0, 60)) + (d.description.length > 60 ? '…' : '') : ''}
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        listEl.innerHTML = '<div class="text-danger py-2" style="font-size:0.82rem;">Failed to load deliverables.</div>';
+    }
+}
+
+function importGoBack() {
+    _selectedSourceId = null;
+    document.getElementById('importStep1').classList.remove('d-none');
+    document.getElementById('importStep2').classList.add('d-none');
+    document.getElementById('importConfirmBtn').classList.add('d-none');
+}
+
+function importSelectAll() {
+    document.querySelectorAll('.import-deliverable-cb').forEach(cb => cb.checked = true);
+}
+
+function importSelectNone() {
+    document.querySelectorAll('.import-deliverable-cb').forEach(cb => cb.checked = false);
+}
+
+async function doImportFromProposal() {
+    if (!_selectedSourceId) return;
+
+    const selected = [...document.querySelectorAll('.import-deliverable-cb:checked')].map(cb => Number(cb.value));
+    if (selected.length === 0) {
+        alert('Please select at least one deliverable to import.');
+        return;
+    }
+
+    const btn = document.getElementById('importConfirmBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing…';
+
+    try {
+        const res  = await fetch(`${BASE_URL}/deliverables/copy-from-proposal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+            body: JSON.stringify({
+                source_proposal_id: _selectedSourceId,
+                deliverable_ids:    selected,
+                skip_duplicates:    true,
+            }),
+        });
+        const data = await res.json();
+
+        const msgEl = document.getElementById('importMsg');
+        msgEl.textContent = data.message;
+        msgEl.classList.remove('d-none', 'alert-danger');
+        msgEl.classList.add('alert-success');
+
+        // Refresh activities tab and similar proposals
+        loadActivities();
+        _allImportProposals = [];
+        loadSimilarProposals();
+
+        setTimeout(() => {
+            bootstrap.Modal.getInstance(document.getElementById('importFromProposalModal'))?.hide();
+            // Switch to activities tab
+            document.querySelector('[data-bs-target="#tab-activities"]')?.click();
+        }, 1200);
+    } catch (e) {
+        const msgEl = document.getElementById('importMsg');
+        msgEl.textContent = 'Import failed. Please try again.';
+        msgEl.classList.remove('d-none', 'alert-success');
+        msgEl.classList.add('alert-danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-box-arrow-in-down me-1"></i> Import Selected';
     }
 }
 

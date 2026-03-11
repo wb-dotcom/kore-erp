@@ -7,6 +7,7 @@ use App\Models\Proposal;
 use App\Models\ProposalActivity;
 use App\Models\ProposalDeliverable;
 use App\Models\ProposalTask;
+use App\Services\ProposalSimilarityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -148,6 +149,140 @@ class ProposalDeliverableController extends Controller
     {
         $task->delete();
         return response()->json(['message' => 'Task deleted.']);
+    }
+
+    // ── Prior Proposal Import ─────────────────────────────────────────────────
+
+    /**
+     * GET /proposals/{proposal}/deliverables/prior/{source}
+     * Returns the deliverable tree of a source proposal, annotated with
+     * duplicate flags against the target proposal.
+     */
+    public function priorProposalTree(
+        Proposal $proposal,
+        Proposal $source,
+        ProposalSimilarityService $similarity
+    ): JsonResponse {
+        $source->load(['deliverables.activities.tasks', 'company', 'status']);
+
+        $dupeCheck = $similarity->checkImportDuplicates($proposal, $source);
+
+        $deliverables = $source->deliverables->map(function (ProposalDeliverable $d) use ($dupeCheck) {
+            $isDuplicate = in_array(strtolower(trim($d->name)), array_map('strtolower', $dupeCheck['duplicates']));
+            return [
+                'id'          => $d->id,
+                'name'        => $d->name,
+                'description' => $d->description,
+                'is_duplicate' => $isDuplicate,
+                'activities'  => $d->activities->map(fn ($a) => [
+                    'id'                 => $a->id,
+                    'name'               => $a->name,
+                    'description'        => $a->description,
+                    'assigned_role'      => $a->assigned_role,
+                    'budgeted_hours'     => $a->budgeted_hours,
+                    'relative_start_day' => $a->relative_start_day,
+                    'relative_end_day'   => $a->relative_end_day,
+                    'tasks'              => $a->tasks->map(fn ($t) => [
+                        'id'               => $t->id,
+                        'name'             => $t->name,
+                        'description'      => $t->description,
+                        'assigned_role'    => $t->assigned_role,
+                        'estimated_hours'  => $t->estimated_hours,
+                        'relative_due_day' => $t->relative_due_day,
+                    ])->values()->all(),
+                ])->values()->all(),
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'source' => [
+                'id'      => $source->id,
+                'ref'     => $source->ref,
+                'title'   => $source->title,
+                'company' => $source->company?->name,
+                'status'  => $source->status?->name,
+            ],
+            'deliverables'     => $deliverables,
+            'duplicate_names'  => $dupeCheck['duplicates'],
+            'new_names'        => $dupeCheck['new'],
+        ]);
+    }
+
+    /**
+     * POST /proposals/{proposal}/deliverables/copy-from-proposal
+     * Imports selected deliverables (by ID) from a source proposal.
+     * Skips any that are flagged as duplicates unless force=true.
+     */
+    public function copyFromProposal(
+        Request $request,
+        Proposal $proposal,
+        ProposalSimilarityService $similarity
+    ): JsonResponse {
+        $data = $request->validate([
+            'source_proposal_id'   => ['required', 'exists:proposals,id'],
+            'deliverable_ids'      => ['required', 'array', 'min:1'],
+            'deliverable_ids.*'    => ['integer'],
+            'skip_duplicates'      => ['boolean'],
+        ]);
+
+        $source        = Proposal::with('deliverables.activities.tasks')->find($data['source_proposal_id']);
+        $skipDupes     = $data['skip_duplicates'] ?? true;
+        $dupeCheck     = $similarity->checkImportDuplicates($proposal, $source);
+        $duplicateNames = array_map('strtolower', $dupeCheck['duplicates']);
+
+        $imported  = 0;
+        $skipped   = 0;
+        $sortOffset = $proposal->deliverables()->max('sort_order') + 1;
+
+        foreach ($source->deliverables->whereIn('id', $data['deliverable_ids']) as $srcDeliv) {
+            $nameLower = strtolower(trim($srcDeliv->name));
+
+            if ($skipDupes && in_array($nameLower, $duplicateNames)) {
+                $skipped++;
+                continue;
+            }
+
+            $deliverable = ProposalDeliverable::create([
+                'proposal_id' => $proposal->id,
+                'name'        => $srcDeliv->name,
+                'description' => $srcDeliv->description,
+                'sort_order'  => $sortOffset++,
+            ]);
+
+            foreach ($srcDeliv->activities as $srcAct) {
+                $activity = ProposalActivity::create([
+                    'proposal_deliverable_id' => $deliverable->id,
+                    'name'                    => $srcAct->name,
+                    'description'             => $srcAct->description,
+                    'relative_start_day'      => $srcAct->relative_start_day,
+                    'relative_end_day'        => $srcAct->relative_end_day,
+                    'assigned_role'           => $srcAct->assigned_role,
+                    'budgeted_hours'          => $srcAct->budgeted_hours,
+                    'sort_order'              => $srcAct->sort_order,
+                ]);
+
+                foreach ($srcAct->tasks as $srcTask) {
+                    ProposalTask::create([
+                        'proposal_activity_id' => $activity->id,
+                        'name'                 => $srcTask->name,
+                        'description'          => $srcTask->description,
+                        'relative_due_day'     => $srcTask->relative_due_day,
+                        'assigned_role'        => $srcTask->assigned_role,
+                        'estimated_hours'      => $srcTask->estimated_hours,
+                        'sort_order'           => $srcTask->sort_order,
+                    ]);
+                }
+            }
+
+            $imported++;
+        }
+
+        return response()->json([
+            'message'      => "{$imported} deliverable(s) imported" . ($skipped > 0 ? ", {$skipped} skipped (duplicate)." : "."),
+            'imported'     => $imported,
+            'skipped'      => $skipped,
+            'deliverables' => $proposal->deliverables()->with('activities.tasks')->get(),
+        ]);
     }
 
     // ── Template Import ───────────────────────────────────────────────────────

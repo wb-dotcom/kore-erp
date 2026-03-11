@@ -77,6 +77,9 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::put('/proposals/{proposal}/deliverables/{deliverable}',                            [ProposalDeliverableController::class, 'updateDeliverable'])->name('proposals.deliverables.update');
     Route::delete('/proposals/{proposal}/deliverables/{deliverable}',                         [ProposalDeliverableController::class, 'destroyDeliverable'])->name('proposals.deliverables.destroy');
     Route::post('/proposals/{proposal}/deliverables/copy-template',                           [ProposalDeliverableController::class, 'copyFromTemplate'])->name('proposals.deliverables.copy-template');
+    Route::get('/proposals/{proposal}/similar',                                               [ProposalController::class, 'similar'])->name('proposals.similar');
+    Route::get('/proposals/{proposal}/deliverables/prior/{source}',                          [ProposalDeliverableController::class, 'priorProposalTree'])->name('proposals.deliverables.prior-tree');
+    Route::post('/proposals/{proposal}/deliverables/copy-from-proposal',                     [ProposalDeliverableController::class, 'copyFromProposal'])->name('proposals.deliverables.copy-from-proposal');
     Route::post('/proposals/{proposal}/deliverables/{deliverable}/activities',                [ProposalDeliverableController::class, 'storeActivity'])->name('proposals.activities.store');
     Route::put('/proposals/{proposal}/activities/{activity}',                                 [ProposalDeliverableController::class, 'updateActivity'])->name('proposals.activities.update');
     Route::delete('/proposals/{proposal}/activities/{activity}',                              [ProposalDeliverableController::class, 'destroyActivity'])->name('proposals.activities.destroy');
