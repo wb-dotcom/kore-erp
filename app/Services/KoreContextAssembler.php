@@ -65,15 +65,21 @@ YOU MUST FOLLOW THESE RULES WITHOUT EXCEPTION:
 ══════════════════════════════════════════════════════════
 
 YOUR CAPABILITIES (when data exists in the database):
-- Companies: full client/vendor list with sector, region, contact count, project count
+- Companies: full client/vendor list with sector, region, contact counts, project counts
 - Contacts: names, titles, emails, phone numbers — searchable by company
-- Projects: budgets, phases, team assignments, percent-complete, schedule
-- Proposals and fee worksheets
-- Client communications (inbound email)
-- Indexed project documents
-- Timesheet and labor burn data
-- Invoice history and payment status
-- Tasks, deliverables, and milestone tracking
+- Projects: budgets, phases, team assignments, percent-complete, schedule, documents, task breakdowns
+- Programs: multi-site rollout containers with budget rollups across all site projects
+- Proposals: pipeline by status, fee worksheets, scope of work
+- Approvals: pending approvals by type (timesheet, time-off, expense) for the current user or firm-wide
+- Time Off / PTO: balances, used hours, upcoming approved/pending requests, team calendar
+- Expenses: pending expense requests, project expense summaries by category
+- Invoices: global invoice dashboard, project-specific billing history, overdue tracking
+- Schedule of Fees: current billing/cost rates per role
+- Timesheets: personal summary, firm-wide utilization rates, submission status
+- Tasks: my assigned tasks, overdue tasks, project-level task breakdowns by status
+- Holidays: upcoming public holidays
+- Client communications: inbound email on projects
+- Indexed project documents: RAG-powered semantic search
 
 RESPONSE GUIDELINES:
 - Lead with the direct answer. Then provide supporting detail.
@@ -129,29 +135,16 @@ PROMPT;
         // ── 4. Keyword-based intent detection ────────────────────────────────────
         $lowerMsg = mb_strtolower($userMessage);
 
-        if ($this->containsAny($lowerMsg, ['proposal', 'proposals', 'fee', 'quote', 'pipeline', 'open proposal', 'approved proposal', 'pending proposal'])) {
+        // Proposals
+        if ($this->containsAny($lowerMsg, ['proposal', 'proposals', 'quote', 'pipeline', 'open proposal', 'approved proposal', 'pending proposal'])) {
             if (empty($mentionedProposals) && ! $scopedProjectId) {
                 $contextBlocks[] = $this->dataTools->getProposalsPipelineSummary();
                 $sources[]       = ['type' => 'proposals', 'label' => 'Proposals pipeline'];
             }
         }
 
-        if ($this->containsAny($lowerMsg, ['my task', 'my work', 'assigned to me', 'what do i have', 'my deadline'])) {
-            $contextBlocks[] = $this->dataTools->getUserTasks($user);
-            $sources[]       = ['type' => 'tasks', 'label' => 'My assigned tasks'];
-        }
-
-        if ($this->containsAny($lowerMsg, ['overdue', 'late', 'past due', 'behind schedule'])) {
-            $contextBlocks[] = $this->dataTools->getUserTasks($user, overdueOnly: true);
-        }
-
-        if ($this->containsAny($lowerMsg, ['timesheet', 'hours logged', 'hours worked', 'my time', 'utilization'])) {
-            $contextBlocks[] = $this->dataTools->getUserTimesheetSummary($user);
-            $sources[]       = ['type' => 'timesheets', 'label' => 'Timesheet data'];
-        }
-
+        // Companies
         if ($this->containsAny($lowerMsg, ['compan', 'client', 'vendor', 'customer', 'who do we work with', 'our clients', 'our companies'])) {
-            // Check if the message names a specific company
             $namedCompany = $this->detectCompany($userMessage);
             if ($namedCompany) {
                 $contextBlocks[] = $this->dataTools->getCompanyContacts($namedCompany->id);
@@ -162,10 +155,10 @@ PROMPT;
             }
         }
 
+        // Contacts
         if ($this->containsAny($lowerMsg, ['contact', 'contacts', 'person', 'people', 'who is', 'who works at', 'reach out', 'email address', 'phone number'])) {
             $namedCompany = $this->detectCompany($userMessage);
             if ($namedCompany) {
-                // Already added above if both "company" and "contact" keywords hit — avoid duplicate
                 if (! $this->containsAny($lowerMsg, ['compan', 'client', 'vendor', 'customer'])) {
                     $contextBlocks[] = $this->dataTools->getCompanyContacts($namedCompany->id);
                     $sources[]       = ['type' => 'company', 'label' => $namedCompany->name . ' contacts'];
@@ -176,26 +169,122 @@ PROMPT;
             }
         }
 
-        if ($this->containsAny($lowerMsg, ['invoice', 'billing', 'payment', 'outstanding', 'accounts receivable'])) {
-            // Global invoice summary when not project-specific
-            if (empty($mentionedProjects) && ! $scopedProjectId) {
-                $overdue = \App\Models\Invoice::where('status', 'overdue')
-                    ->with('project')
-                    ->orderByDesc('total')
-                    ->limit(10)
-                    ->get();
+        // My tasks
+        if ($this->containsAny($lowerMsg, ['my task', 'my work', 'assigned to me', 'what do i have', 'my deadline'])) {
+            $contextBlocks[] = $this->dataTools->getUserTasks($user);
+            $sources[]       = ['type' => 'tasks', 'label' => 'My assigned tasks'];
+        }
 
-                if ($overdue->isNotEmpty()) {
-                    $lines = ["OVERDUE INVOICES ({$overdue->count()}):"];
-                    foreach ($overdue as $inv) {
-                        $lines[] = "  🚨 {$inv->invoice_number}: {$inv->project?->project_number} — "
-                            . config('kore.currency_symbol', '$') . number_format($inv->total)
-                            . " due {$inv->due_date?->format(config('kore.date_format', 'M d, Y'))}";
-                    }
-                    $contextBlocks[] = implode("\n", $lines);
-                    $sources[]       = ['type' => 'invoices', 'label' => 'Overdue invoices'];
-                }
+        // Overdue tasks
+        if ($this->containsAny($lowerMsg, ['overdue', 'late', 'past due', 'behind schedule'])) {
+            $contextBlocks[] = $this->dataTools->getUserTasks($user, overdueOnly: true);
+        }
+
+        // Project-level task breakdown
+        if ($this->containsAny($lowerMsg, ['task', 'tasks', 'to-do', 'todo', 'work items', 'blocked']) && ! empty($mentionedProjects)) {
+            foreach ($mentionedProjects as $p) {
+                $contextBlocks[] = $this->dataTools->getProjectTaskSummary($p->id);
+                $sources[]       = ['type' => 'tasks', 'label' => $p->project_number . ' tasks'];
             }
+        }
+        if ($this->containsAny($lowerMsg, ['task', 'tasks', 'to-do', 'work items', 'blocked']) && $scopedProjectId) {
+            $contextBlocks[] = $this->dataTools->getProjectTaskSummary($scopedProjectId);
+            $sources[]       = ['type' => 'tasks', 'label' => "Project #{$scopedProjectId} tasks"];
+        }
+
+        // Timesheets
+        if ($this->containsAny($lowerMsg, ['my timesheet', 'my hours', 'hours logged', 'hours worked', 'my time'])) {
+            $contextBlocks[] = $this->dataTools->getUserTimesheetSummary($user);
+            $sources[]       = ['type' => 'timesheets', 'label' => 'My timesheet data'];
+        }
+
+        // Utilization
+        if ($this->containsAny($lowerMsg, ['utilization', 'utilisation', 'billable hours', 'firm hours', 'staff hours', 'team hours', 'who logged', 'logged time'])) {
+            $contextBlocks[] = $this->dataTools->getFirmUtilizationSummary();
+            $sources[]       = ['type' => 'utilization', 'label' => 'Firm utilization'];
+        }
+
+        // Timesheet submission
+        if ($this->containsAny($lowerMsg, ["hasn't submitted", "not submitted", 'timesheet status', 'missing timesheet', 'timesheet submission'])) {
+            $contextBlocks[] = $this->dataTools->getTimesheetSubmissionStatus();
+            $sources[]       = ['type' => 'timesheets', 'label' => 'Timesheet submission status'];
+        }
+
+        // Approvals
+        if ($this->containsAny($lowerMsg, ['approval', 'approve', 'pending approval', 'waiting for approval', 'needs approval', 'review request', 'approve timesheet', 'approve expense', 'approve time off'])) {
+            $contextBlocks[] = $this->dataTools->getPendingApprovals($user);
+            $sources[]       = ['type' => 'approvals', 'label' => 'Pending approvals'];
+        }
+
+        // PTO / Time Off
+        if ($this->containsAny($lowerMsg, ['pto', 'time off', 'time-off', 'vacation', 'sick day', 'sick leave', 'personal day', 'leave', 'day off', 'days off', 'pto balance', 'my leave'])) {
+            $contextBlocks[] = $this->dataTools->getUserPtoSummary($user);
+            $sources[]       = ['type' => 'pto', 'label' => 'My PTO summary'];
+        }
+
+        if ($this->containsAny($lowerMsg, ['who is out', "who's out", 'team schedule', 'team time off', 'upcoming time off', 'out of office', 'away', 'team leave'])) {
+            $contextBlocks[] = $this->dataTools->getTeamTimeOffCalendar();
+            $sources[]       = ['type' => 'pto', 'label' => 'Team time-off calendar'];
+        }
+
+        if ($this->containsAny($lowerMsg, ['pending time off', 'pending leave', 'time off requests', 'leave requests'])) {
+            $contextBlocks[] = $this->dataTools->getPendingTimeOffRequests();
+            $sources[]       = ['type' => 'pto', 'label' => 'Pending time-off requests'];
+        }
+
+        // Expenses
+        if ($this->containsAny($lowerMsg, ['expense', 'expenses', 'reimbursement', 'receipt', 'spending'])) {
+            if (! empty($mentionedProjects)) {
+                foreach ($mentionedProjects as $p) {
+                    $contextBlocks[] = $this->dataTools->getProjectExpenses($p->id);
+                    $sources[]       = ['type' => 'expenses', 'label' => $p->project_number . ' expenses'];
+                }
+            } else {
+                $contextBlocks[] = $this->dataTools->getPendingExpenses();
+                $sources[]       = ['type' => 'expenses', 'label' => 'Pending expenses'];
+            }
+        }
+
+        // Programs
+        if ($this->containsAny($lowerMsg, ['program', 'programs', 'rollout', 'portfolio program', 'program summary', 'all sites'])) {
+            $contextBlocks[] = $this->dataTools->getActivePrograms();
+            $sources[]       = ['type' => 'programs', 'label' => 'Programs overview'];
+        }
+
+        // Schedule of fees / billing rates
+        if ($this->containsAny($lowerMsg, ['billing rate', 'hourly rate', 'rates', 'schedule of fees', 'fee schedule', 'how much do we charge', 'rate card', 'cost rate'])) {
+            $contextBlocks[] = $this->dataTools->getScheduleOfFees();
+            $sources[]       = ['type' => 'fees', 'label' => 'Schedule of fees'];
+        }
+
+        // Documents
+        if ($this->containsAny($lowerMsg, ['document', 'documents', 'file', 'files', 'attachment', 'uploaded', 'on file']) && (! empty($mentionedProjects) || $scopedProjectId)) {
+            $projectIds = array_map(fn($p) => $p->id, $mentionedProjects);
+            if ($scopedProjectId) $projectIds[] = $scopedProjectId;
+            foreach (array_unique($projectIds) as $pid) {
+                $contextBlocks[] = $this->dataTools->getProjectDocumentSummary($pid);
+                $sources[]       = ['type' => 'documents', 'label' => "Project #{$pid} documents"];
+            }
+        }
+
+        // Holidays
+        if ($this->containsAny($lowerMsg, ['holiday', 'holidays', 'public holiday', 'working days', 'days off', 'next holiday', 'long weekend'])) {
+            $contextBlocks[] = $this->dataTools->getUpcomingHolidays();
+            $sources[]       = ['type' => 'holidays', 'label' => 'Upcoming holidays'];
+        }
+
+        // Invoices — global dashboard or project-specific overdue
+        if ($this->containsAny($lowerMsg, ['invoice', 'billing', 'payment', 'outstanding', 'accounts receivable', 'ar ', 'unpaid', 'overdue invoice'])) {
+            if (empty($mentionedProjects) && ! $scopedProjectId) {
+                $contextBlocks[] = $this->dataTools->getGlobalInvoiceSummary();
+                $sources[]       = ['type' => 'invoices', 'label' => 'Invoice dashboard'];
+            }
+        }
+
+        // Fee / project finances when "fee" is mentioned without proposals
+        if ($this->containsAny($lowerMsg, ['fee', 'budget', 'financ', 'cost']) && empty($mentionedProposals) && empty($mentionedProjects) && ! $scopedProjectId) {
+            $contextBlocks[] = $this->dataTools->getProposalsPipelineSummary();
+            $sources[]       = ['type' => 'proposals', 'label' => 'Proposals pipeline'];
         }
 
         // ── 5. Portfolio overview when no specific entity detected ─────────────────
