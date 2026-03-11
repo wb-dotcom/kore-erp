@@ -25,14 +25,18 @@
         </div>
         <div class="row g-3">
             <div class="col-sm-2">
-                <label class="form-label">Year <span class="text-danger">*</span></label>
-                <input type="number" name="year" class="form-control form-control-sm"
-                    value="{{ old('year', $project->year) }}" required>
+                <label class="form-label">Year</label>
+                <div class="form-control form-control-sm bg-light text-muted" style="cursor:default;">
+                    {{ $project->year }}
+                </div>
+                <div class="form-text" style="font-size:0.65rem; color:#9ca3af;">System assigned</div>
             </div>
             <div class="col-sm-2">
-                <label class="form-label">Project # <span class="text-danger">*</span></label>
-                <input type="number" name="project_number" class="form-control form-control-sm"
-                    value="{{ old('project_number', $project->project_number) }}" required>
+                <label class="form-label">Project #</label>
+                <div class="form-control form-control-sm bg-light text-muted" style="cursor:default;">
+                    {{ str_pad($project->project_number, 3, '0', STR_PAD_LEFT) }}
+                </div>
+                <div class="form-text" style="font-size:0.65rem; color:#9ca3af;">System assigned</div>
             </div>
             <div class="col-sm-8">
                 <label class="form-label">Title <span class="text-danger">*</span></label>

@@ -84,8 +84,6 @@ class ProjectController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'year'               => ['required', 'integer', 'min:2000'],
-            'project_number'     => ['required', 'integer', 'min:1'],
             'title'              => ['required', 'string', 'max:255'],
             'company_id'         => ['nullable', 'exists:companies,id'],
             'project_manager_id' => ['nullable', 'exists:users,id'],
@@ -97,6 +95,16 @@ class ProjectController extends Controller
             'total_budget'       => ['nullable', 'numeric', 'min:0'],
             'notes'              => ['nullable', 'string'],
         ]);
+
+        // System-generate year and project_number — never accept from user input
+        $year = now()->year;
+        if (!empty($data['proposal_id'])) {
+            $proposal = Proposal::find($data['proposal_id']);
+            if ($proposal) $year = $proposal->year;
+        }
+        $lastNumber = Project::where('year', $year)->max('project_number') ?? 0;
+        $data['year']           = $year;
+        $data['project_number'] = $lastNumber + 1;
 
         // If linked to a proposal, validate it is approved and not already taken
         if (!empty($data['proposal_id'])) {
@@ -131,6 +139,7 @@ class ProjectController extends Controller
             }
         }
 
+        $data['total_budget'] = $data['total_budget'] ?? 0;
         $data['created_by'] = auth()->id();
 
         $project = Project::create($data);
@@ -188,8 +197,6 @@ class ProjectController extends Controller
     public function update(Request $request, Project $project)
     {
         $data = $request->validate([
-            'year'               => ['required', 'integer', 'min:2000'],
-            'project_number'     => ['required', 'integer', 'min:1'],
             'title'              => ['required', 'string', 'max:255'],
             'company_id'         => ['nullable', 'exists:companies,id'],
             'project_manager_id' => ['nullable', 'exists:users,id'],
@@ -201,6 +208,7 @@ class ProjectController extends Controller
             'total_budget'       => ['nullable', 'numeric', 'min:0'],
             'notes'              => ['nullable', 'string'],
         ]);
+        // year and project_number are system-generated — never allow changes
 
         // If a proposal is being linked and it's different from existing, validate
         if (!empty($data['proposal_id']) && $data['proposal_id'] != $project->proposal_id) {
@@ -227,6 +235,8 @@ class ProjectController extends Controller
                 }
             }
         }
+
+        $data['total_budget'] = $data['total_budget'] ?? 0;
 
         $project->update($data);
 

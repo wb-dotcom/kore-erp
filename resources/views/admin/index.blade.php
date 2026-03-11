@@ -62,7 +62,7 @@
             <div class="kore-card text-center py-3">
                 <i class="bi bi-tags fs-3 mb-1" style="color:#8b5cf6;"></i>
                 <div class="fw-600" style="font-size:0.85rem;">Lookup Tables</div>
-                <div style="font-size:0.72rem; color:#9ca3af;">Sectors, regions, types</div>
+                <div style="font-size:0.72rem; color:#9ca3af;">Sectors, project types, statuses &amp; more</div>
             </div>
         </a>
     </div>

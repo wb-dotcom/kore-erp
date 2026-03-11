@@ -15,7 +15,14 @@
 
 {{-- Lookup nav --}}
 <div class="d-flex gap-2 mb-4" style="flex-wrap:wrap;">
-    @foreach(['sectors'=>'Sectors','regions'=>'Regions','work-types'=>'Work Types','contact-types'=>'Contact Types'] as $t => $label)
+    @foreach([
+        'sectors'          => 'Sectors',
+        'regions'          => 'Regions',
+        'work-types'       => 'Work Types',
+        'contact-types'    => 'Contact Types',
+        'project-types'    => 'Project Types',
+        'project-statuses' => 'Project Statuses',
+    ] as $t => $label)
     <a href="{{ route('admin.'.$t.'.index') }}"
         class="btn btn-sm {{ $type === $t ? 'btn-primary' : 'btn-outline-secondary' }}">
         {{ $label }}
@@ -30,6 +37,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
+                        @if($hasIsBillable ?? false)<th class="text-center">Billable</th>@endif
                         <th class="text-center">Used</th>
                         <th></th>
                     </tr>
@@ -38,14 +46,20 @@
                     @forelse($items as $item)
                     <tr>
                         <td class="fw-500" style="font-size:0.82rem;">{{ $item->name }}</td>
+                        @if($hasIsBillable ?? false)
+                        <td class="text-center">
+                            @if($item->is_billable)
+                                <span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.7rem;">Yes</span>
+                            @else
+                                <span class="badge" style="background:#f3f4f6; color:#6b7280; font-size:0.7rem;">No</span>
+                            @endif
+                        </td>
+                        @endif
                         <td class="text-center" style="font-size:0.8rem; color:#6b7280;">
-                            {{ $item->companies_count ?? $item->proposals_count ?? $item->contacts_count ?? 0 }}
+                            {{ $item->companies_count ?? $item->proposals_count ?? $item->contacts_count ?? $item->projects_count ?? 0 }}
                         </td>
                         <td class="text-end">
-                            @php
-                                $routeBase = 'admin.'.$type;
-                                $paramName = str_replace('-', '_', \Illuminate\Support\Str::singular($type));
-                            @endphp
+                            @php $routeBase = 'admin.'.$type; @endphp
                             <form action="{{ route($routeBase.'.destroy', $item) }}" method="POST"
                                 onsubmit="return confirm('Delete {{ $item->name }}?')">
                                 @csrf @method('DELETE')
@@ -57,7 +71,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="3" class="text-center py-4" style="color:#9ca3af; font-size:0.8rem;">
+                        <td colspan="{{ ($hasIsBillable ?? false) ? 4 : 3 }}" class="text-center py-4" style="color:#9ca3af; font-size:0.8rem;">
                             No {{ strtolower($title) }} yet.
                         </td>
                     </tr>
@@ -71,10 +85,21 @@
             <div class="fw-600 mb-3" style="font-size:0.85rem;">Add {{ \Illuminate\Support\Str::singular($title) }}</div>
             <form action="{{ route('admin.'.$type.'.store') }}" method="POST">
                 @csrf
+                @if(session('error'))
+                <div class="alert alert-danger py-2 mb-2" style="font-size:0.78rem;">{{ session('error') }}</div>
+                @endif
                 <div class="mb-3">
                     <label class="form-label" style="font-size:0.78rem;">Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control form-control-sm" required>
                 </div>
+                @if($hasIsBillable ?? false)
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_billable" value="1" id="isBillableCheck" checked>
+                        <label class="form-check-label" for="isBillableCheck" style="font-size:0.78rem;">Billable type</label>
+                    </div>
+                </div>
+                @endif
                 <button type="submit" class="btn btn-primary btn-sm w-100">
                     <i class="bi bi-plus-lg me-1"></i> Add
                 </button>

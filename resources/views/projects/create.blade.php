@@ -25,19 +25,24 @@
                 </div>
                 <div class="row g-3">
                     <div class="col-sm-2">
-                        <label class="form-label">Year <span class="text-danger">*</span></label>
-                        <input type="number" name="year" id="proj_year" class="form-control form-control-sm"
-                            value="{{ old('year', $year) }}" required>
+                        <label class="form-label">Year</label>
+                        <div class="form-control form-control-sm bg-light text-muted" id="proj_year_display"
+                            style="cursor:default;">{{ $year }}</div>
+                        <div class="form-text" style="font-size:0.65rem; color:#9ca3af;">System assigned</div>
                     </div>
                     <div class="col-sm-2">
-                        <label class="form-label">Project # <span class="text-danger">*</span></label>
-                        <input type="number" name="project_number" class="form-control form-control-sm"
-                            value="{{ old('project_number', $nextNumber) }}" required>
+                        <label class="form-label">Project #</label>
+                        <div class="form-control form-control-sm bg-light text-muted"
+                            style="cursor:default;">{{ $nextNumber }}</div>
+                        <div class="form-text" style="font-size:0.65rem; color:#9ca3af;">Auto-assigned</div>
                     </div>
                     <div class="col-sm-8">
                         <label class="form-label">Title <span class="text-danger">*</span></label>
-                        <input type="text" name="title" class="form-control form-control-sm"
+                        <input type="text" name="title" id="proj_title" class="form-control form-control-sm"
                             value="{{ old('title') }}" placeholder="Project name" required>
+                        <div class="form-text" style="font-size:0.65rem; color:#9ca3af;" id="titleHint" style="display:none;">
+                            Pre-filled from proposal — you can edit this.
+                        </div>
                     </div>
 
                     {{-- Proposal Linking --}}
@@ -50,6 +55,8 @@
                                 data-company="{{ $p->company_id }}"
                                 data-year="{{ $p->year }}"
                                 data-billing="{{ $p->billing_type }}"
+                                data-title="{{ $p->title }}"
+                                data-fee="{{ $p->total_fee ?? $p->contract_value ?? '' }}"
                                 {{ (old('proposal_id', request('proposal_id')) == $p->id) ? 'selected' : '' }}>
                                 {{ $p->ref }} — {{ $p->title }}
                                 @if($p->company) ({{ $p->company->name }}) @endif
@@ -180,7 +187,10 @@ function onProposalChange() {
     const nonBillableNotice = document.getElementById('nonBillableNotice');
     const billableNotice    = document.getElementById('billableNotice');
     const companySelect     = document.getElementById('companySelect');
-    const yearInput         = document.getElementById('proj_year');
+    const yearDisplay       = document.getElementById('proj_year_display');
+    const titleInput        = document.getElementById('proj_title');
+    const titleHint         = document.getElementById('titleHint');
+    const budgetInput       = document.querySelector('[name="total_budget"]');
 
     if (pid) {
         // Proposal selected → billable
@@ -193,13 +203,32 @@ function onProposalChange() {
             companySelect.value = companyId;
         }
 
-        // Auto-fill year from proposal
+        // Update year display from proposal
         const yr = opt.dataset.year;
-        if (yr && yearInput) yearInput.value = yr;
+        if (yr && yearDisplay) yearDisplay.textContent = yr;
+
+        // Pre-populate title from proposal (only if currently empty or was proposal-filled)
+        const proposalTitle = opt.dataset.title || '';
+        if (titleInput && proposalTitle) {
+            titleInput.value = proposalTitle;
+            if (titleHint) titleHint.style.display = '';
+        }
+
+        // Pre-fill total budget from proposal fee
+        const fee = opt.dataset.fee;
+        if (budgetInput && fee) {
+            budgetInput.value = parseFloat(fee).toFixed(2);
+        }
     } else {
         // No proposal → non-billable
         nonBillableNotice.style.display = '';
         billableNotice.style.display    = 'none';
+
+        // Reset year display
+        if (yearDisplay) yearDisplay.textContent = '{{ $year }}';
+
+        // Clear title hint
+        if (titleHint) titleHint.style.display = 'none';
 
         // Default to K5 Company
         if (K5_COMPANY_ID && companySelect) {

@@ -22,6 +22,8 @@ use App\Http\Controllers\BillingScheduleController;
 use App\Http\Controllers\ProposalDeliverableController;
 use App\Http\Controllers\WorkloadController;
 use App\Http\Controllers\ProjectNoteController;
+use App\Http\Controllers\ProjectTypeController;
+use App\Http\Controllers\ProjectStatusController;
 
 /*
 |--------------------------------------------------------------------------
@@ -168,10 +170,12 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::resource('holidays', \App\Http\Controllers\HolidayController::class);
         Route::get('/schedule-of-fees',         [AdminController::class, 'scheduleOfFees'])->name('schedule-of-fees');
         Route::post('/schedule-of-fees',        [AdminController::class, 'saveScheduleOfFees'])->name('schedule-of-fees.save');
-        Route::resource('sectors',      \App\Http\Controllers\SectorController::class);
-        Route::resource('regions',      \App\Http\Controllers\RegionController::class);
-        Route::resource('work-types',   \App\Http\Controllers\WorkTypeController::class);
-        Route::resource('contact-types', \App\Http\Controllers\ContactTypeController::class);
+        Route::resource('sectors',          \App\Http\Controllers\SectorController::class);
+        Route::resource('regions',          \App\Http\Controllers\RegionController::class);
+        Route::resource('work-types',       \App\Http\Controllers\WorkTypeController::class);
+        Route::resource('contact-types',    \App\Http\Controllers\ContactTypeController::class);
+        Route::resource('project-types',    ProjectTypeController::class);
+        Route::resource('project-statuses', ProjectStatusController::class);
         Route::get('/system-settings',          [AdminController::class, 'systemSettings'])->name('system-settings');
         Route::post('/system-settings',         [AdminController::class, 'saveSystemSettings'])->name('system-settings.save');
         Route::get('/activity-log',             [AdminController::class, 'activityLog'])->name('activity-log');
