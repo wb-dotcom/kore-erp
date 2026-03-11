@@ -52,11 +52,24 @@
 
                 <div class="col-sm-6">
                     <label class="form-label">Client Company</label>
-                    <select name="company_id" class="form-select form-select-sm">
+                    <select name="company_id" id="companySelect" class="form-select form-select-sm">
                         <option value="">— Select Company —</option>
                         @foreach($companies as $c)
                         <option value="{{ $c->id }}" {{ old('company_id') == $c->id ? 'selected' : '' }}>
                             {{ $c->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Contact Person</label>
+                    <select name="contact_id" id="contactSelect" class="form-select form-select-sm">
+                        <option value="">— Select Contact —</option>
+                        @foreach($contacts as $ct)
+                        <option value="{{ $ct->id }}" data-company="{{ $ct->company_id }}"
+                            {{ old('contact_id') == $ct->id ? 'selected' : '' }}>
+                            {{ $ct->full_name }}{{ $ct->company ? ' ('.$ct->company->name.')' : '' }}
                         </option>
                         @endforeach
                     </select>
@@ -73,6 +86,18 @@
                         @endforeach
                     </select>
                     @error('status_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Project Type</label>
+                    <select name="project_type_id" class="form-select form-select-sm">
+                        <option value="">— Select Type —</option>
+                        @foreach($projectTypes as $pt)
+                        <option value="{{ $pt->id }}" {{ old('project_type_id') == $pt->id ? 'selected' : '' }}>
+                            {{ $pt->name }}
+                        </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <div class="col-sm-6">
@@ -112,15 +137,33 @@
                 </div>
 
                 <div class="col-sm-6">
+                    <label class="form-label">Program</label>
+                    <select name="program_id" class="form-select form-select-sm">
+                        <option value="">— No Program —</option>
+                        @foreach($programs as $prog)
+                        <option value="{{ $prog->id }}" {{ old('program_id') == $prog->id ? 'selected' : '' }}>
+                            {{ $prog->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-4">
+                    <label class="form-label">Vendor Code</label>
+                    <input type="text" name="vendor_code" class="form-control form-control-sm"
+                        value="{{ old('vendor_code') }}" placeholder="e.g. BPHGA">
+                </div>
+
+                <div class="col-sm-4">
                     <label class="form-label">Submitted Date</label>
                     <input type="date" name="submitted_date" class="form-control form-control-sm"
                         value="{{ old('submitted_date') }}">
                 </div>
 
-                <div class="col-sm-6">
-                    <label class="form-label">Approved Date</label>
-                    <input type="date" name="approved_date" class="form-control form-control-sm"
-                        value="{{ old('approved_date') }}">
+                <div class="col-sm-4">
+                    <label class="form-label">Expiry Date</label>
+                    <input type="date" name="expiry_date" class="form-control form-control-sm"
+                        value="{{ old('expiry_date') }}">
                 </div>
 
                 <div class="col-12">
@@ -139,32 +182,50 @@
 
         {{-- Billing Terms --}}
         <div class="kore-card mt-4">
-            <div class="kore-card-header"><h5><i class="bi bi-receipt me-2"></i>Billing Terms</h5></div>
+            <div class="kore-card-header"><h5><i class="bi bi-receipt me-2"></i>Billing &amp; Financials</h5></div>
             <div class="row g-3">
+                <div class="col-sm-4">
+                    <label class="form-label">Contract Value</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="contract_value" class="form-control" step="0.01" min="0"
+                            value="{{ old('contract_value') }}" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Expenses Reserve</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="expenses_reserve" class="form-control" step="0.01" min="0"
+                            value="{{ old('expenses_reserve', 0) }}" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Payment Terms (days)</label>
+                    <input type="number" name="payment_terms_days" class="form-control form-control-sm"
+                        value="{{ old('payment_terms_days', 30) }}" min="0" max="365" placeholder="30">
+                </div>
                 <div class="col-sm-4">
                     <label class="form-label">Billing Type</label>
                     <select name="billing_type" class="form-select form-select-sm">
                         <option value="">— Select —</option>
                         <option value="fixed" {{ old('billing_type') === 'fixed' ? 'selected' : '' }}>Fixed Fee</option>
                         <option value="time_and_material" {{ old('billing_type') === 'time_and_material' ? 'selected' : '' }}>Time &amp; Material</option>
-                        <option value="hybrid" {{ old('billing_type') === 'hybrid' ? 'selected' : '' }}>Hybrid</option>
+                        <option value="per_deliverable" {{ old('billing_type') === 'per_deliverable' ? 'selected' : '' }}>Per Deliverable</option>
                         <option value="retainer" {{ old('billing_type') === 'retainer' ? 'selected' : '' }}>Retainer</option>
+                        <option value="hybrid" {{ old('billing_type') === 'hybrid' ? 'selected' : '' }}>Hybrid</option>
                     </select>
                 </div>
                 <div class="col-sm-4">
                     <label class="form-label">Billing Cycle</label>
                     <select name="billing_cycle" class="form-select form-select-sm">
                         <option value="">— Select —</option>
+                        <option value="biweekly" {{ old('billing_cycle') === 'biweekly' ? 'selected' : '' }}>Bi-Weekly (15 days)</option>
                         <option value="monthly" {{ old('billing_cycle') === 'monthly' ? 'selected' : '' }}>Monthly</option>
-                        <option value="milestone" {{ old('billing_cycle') === 'milestone' ? 'selected' : '' }}>Per Milestone</option>
+                        <option value="quarterly" {{ old('billing_cycle') === 'quarterly' ? 'selected' : '' }}>Quarterly</option>
                         <option value="on_completion" {{ old('billing_cycle') === 'on_completion' ? 'selected' : '' }}>On Completion</option>
                         <option value="custom" {{ old('billing_cycle') === 'custom' ? 'selected' : '' }}>Custom</option>
                     </select>
-                </div>
-                <div class="col-sm-4">
-                    <label class="form-label">Payment Terms (days)</label>
-                    <input type="number" name="payment_terms_days" class="form-control form-control-sm"
-                        value="{{ old('payment_terms_days', 30) }}" min="0" max="365" placeholder="30">
                 </div>
             </div>
         </div>

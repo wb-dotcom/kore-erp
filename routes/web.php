@@ -18,6 +18,8 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\AiController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProposalLineItemController;
+use App\Http\Controllers\BillingScheduleController;
+use App\Http\Controllers\ProposalDeliverableController;
 
 /*
 |--------------------------------------------------------------------------
@@ -61,6 +63,26 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::post('/proposals/{proposal}/line-items/export-docs',   [ProposalLineItemController::class, 'exportDocs'])->name('proposals.line-items.export-docs');
     Route::post('/proposals/{proposal}/rate-schedules',            [ProposalLineItemController::class, 'storeRateSchedule'])->name('proposals.rate-schedules.store');
     Route::delete('/proposals/{proposal}/rate-schedules/{rateSchedule}', [ProposalLineItemController::class, 'destroyRateSchedule'])->name('proposals.rate-schedules.destroy');
+
+    // Billing Schedule
+    Route::get('/proposals/{proposal}/billing-schedule',                              [BillingScheduleController::class, 'show'])->name('proposals.billing-schedule.show');
+    Route::post('/proposals/{proposal}/billing-schedule/generate',                    [BillingScheduleController::class, 'generate'])->name('proposals.billing-schedule.generate');
+    Route::post('/proposals/{proposal}/billing-schedule/periods',                     [BillingScheduleController::class, 'storePeriod'])->name('proposals.billing-schedule.periods.store');
+    Route::put('/proposals/{proposal}/billing-schedule/periods/{period}',             [BillingScheduleController::class, 'updatePeriod'])->name('proposals.billing-schedule.periods.update');
+    Route::delete('/proposals/{proposal}/billing-schedule/periods/{period}',          [BillingScheduleController::class, 'destroyPeriod'])->name('proposals.billing-schedule.periods.destroy');
+
+    // Proposal Deliverables / Activities / Tasks (work breakdown template)
+    Route::get('/proposals/{proposal}/deliverables',                                          [ProposalDeliverableController::class, 'index'])->name('proposals.deliverables.index');
+    Route::post('/proposals/{proposal}/deliverables',                                         [ProposalDeliverableController::class, 'storeDeliverable'])->name('proposals.deliverables.store');
+    Route::put('/proposals/{proposal}/deliverables/{deliverable}',                            [ProposalDeliverableController::class, 'updateDeliverable'])->name('proposals.deliverables.update');
+    Route::delete('/proposals/{proposal}/deliverables/{deliverable}',                         [ProposalDeliverableController::class, 'destroyDeliverable'])->name('proposals.deliverables.destroy');
+    Route::post('/proposals/{proposal}/deliverables/copy-template',                           [ProposalDeliverableController::class, 'copyFromTemplate'])->name('proposals.deliverables.copy-template');
+    Route::post('/proposals/{proposal}/deliverables/{deliverable}/activities',                [ProposalDeliverableController::class, 'storeActivity'])->name('proposals.activities.store');
+    Route::put('/proposals/{proposal}/activities/{activity}',                                 [ProposalDeliverableController::class, 'updateActivity'])->name('proposals.activities.update');
+    Route::delete('/proposals/{proposal}/activities/{activity}',                              [ProposalDeliverableController::class, 'destroyActivity'])->name('proposals.activities.destroy');
+    Route::post('/proposals/{proposal}/activities/{activity}/tasks',                          [ProposalDeliverableController::class, 'storeTask'])->name('proposals.tasks.store');
+    Route::put('/proposals/{proposal}/tasks/{task}',                                          [ProposalDeliverableController::class, 'updateTask'])->name('proposals.tasks.update');
+    Route::delete('/proposals/{proposal}/tasks/{task}',                                       [ProposalDeliverableController::class, 'destroyTask'])->name('proposals.tasks.destroy');
 
     // Documents
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');

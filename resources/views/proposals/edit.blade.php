@@ -64,6 +64,18 @@
                 </div>
 
                 <div class="col-sm-6">
+                    <label class="form-label">Contact Person</label>
+                    <select name="contact_id" class="form-select form-select-sm">
+                        <option value="">— Select Contact —</option>
+                        @foreach($contacts as $ct)
+                        <option value="{{ $ct->id }}" {{ old('contact_id', $proposal->contact_id) == $ct->id ? 'selected' : '' }}>
+                            {{ $ct->full_name }}{{ $ct->company ? ' ('.$ct->company->name.')' : '' }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-6">
                     <label class="form-label required">Status</label>
                     <select name="status_id" class="form-select form-select-sm @error('status_id') is-invalid @enderror" required>
                         <option value="">— Select Status —</option>
@@ -74,6 +86,18 @@
                         @endforeach
                     </select>
                     @error('status_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-sm-6">
+                    <label class="form-label">Project Type</label>
+                    <select name="project_type_id" class="form-select form-select-sm">
+                        <option value="">— Select Type —</option>
+                        @foreach($projectTypes as $pt)
+                        <option value="{{ $pt->id }}" {{ old('project_type_id', $proposal->project_type_id) == $pt->id ? 'selected' : '' }}>
+                            {{ $pt->name }}
+                        </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <div class="col-sm-6">
@@ -113,15 +137,33 @@
                 </div>
 
                 <div class="col-sm-6">
+                    <label class="form-label">Program</label>
+                    <select name="program_id" class="form-select form-select-sm">
+                        <option value="">— No Program —</option>
+                        @foreach($programs as $prog)
+                        <option value="{{ $prog->id }}" {{ old('program_id', $proposal->program_id) == $prog->id ? 'selected' : '' }}>
+                            {{ $prog->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-sm-4">
+                    <label class="form-label">Vendor Code</label>
+                    <input type="text" name="vendor_code" class="form-control form-control-sm"
+                        value="{{ old('vendor_code', $proposal->vendor_code) }}" placeholder="e.g. BPHGA">
+                </div>
+
+                <div class="col-sm-4">
                     <label class="form-label">Submitted Date</label>
                     <input type="date" name="submitted_date" class="form-control form-control-sm"
                         value="{{ old('submitted_date', $proposal->submitted_date?->format('Y-m-d')) }}">
                 </div>
 
-                <div class="col-sm-6">
-                    <label class="form-label">Approved Date</label>
-                    <input type="date" name="approved_date" class="form-control form-control-sm"
-                        value="{{ old('approved_date', $proposal->approved_date?->format('Y-m-d')) }}">
+                <div class="col-sm-4">
+                    <label class="form-label">Expiry Date</label>
+                    <input type="date" name="expiry_date" class="form-control form-control-sm"
+                        value="{{ old('expiry_date', $proposal->expiry_date?->format('Y-m-d')) }}">
                 </div>
 
                 <div class="col-12">
@@ -136,15 +178,36 @@
             </div>
         </div>
 
-        {{-- Billing Terms --}}
+        {{-- Billing & Financials --}}
         <div class="kore-card mt-4">
-            <div class="kore-card-header"><h5><i class="bi bi-receipt me-2"></i>Billing Terms</h5></div>
+            <div class="kore-card-header"><h5><i class="bi bi-receipt me-2"></i>Billing &amp; Financials</h5></div>
             <div class="row g-3">
+                <div class="col-sm-4">
+                    <label class="form-label">Contract Value</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="contract_value" class="form-control" step="0.01" min="0"
+                            value="{{ old('contract_value', $proposal->contract_value) }}" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Expenses Reserve</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="expenses_reserve" class="form-control" step="0.01" min="0"
+                            value="{{ old('expenses_reserve', $proposal->expenses_reserve ?? 0) }}" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label">Payment Terms (days)</label>
+                    <input type="number" name="payment_terms_days" class="form-control form-control-sm"
+                        value="{{ old('payment_terms_days', $proposal->payment_terms_days ?? 30) }}" min="0" max="365">
+                </div>
                 <div class="col-sm-4">
                     <label class="form-label">Billing Type</label>
                     <select name="billing_type" class="form-select form-select-sm">
                         <option value="">— Select —</option>
-                        @foreach(['fixed' => 'Fixed Fee', 'time_and_material' => 'Time & Material', 'hybrid' => 'Hybrid', 'retainer' => 'Retainer'] as $val => $label)
+                        @foreach(['fixed' => 'Fixed Fee', 'time_and_material' => 'Time & Material', 'per_deliverable' => 'Per Deliverable', 'retainer' => 'Retainer', 'hybrid' => 'Hybrid'] as $val => $label)
                         <option value="{{ $val }}" {{ old('billing_type', $proposal->billing_type) === $val ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
@@ -153,15 +216,16 @@
                     <label class="form-label">Billing Cycle</label>
                     <select name="billing_cycle" class="form-select form-select-sm">
                         <option value="">— Select —</option>
-                        @foreach(['monthly' => 'Monthly', 'milestone' => 'Per Milestone', 'on_completion' => 'On Completion', 'custom' => 'Custom'] as $val => $label)
+                        @foreach(['biweekly' => 'Bi-Weekly (15 days)', 'monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'on_completion' => 'On Completion', 'custom' => 'Custom'] as $val => $label)
                         <option value="{{ $val }}" {{ old('billing_cycle', $proposal->billing_cycle) === $val ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="col-sm-4">
-                    <label class="form-label">Payment Terms (days)</label>
-                    <input type="number" name="payment_terms_days" class="form-control form-control-sm"
-                        value="{{ old('payment_terms_days', $proposal->payment_terms_days ?? 30) }}" min="0" max="365">
+                    <label class="form-label">Google Doc URL</label>
+                    <input type="url" name="google_doc_url" class="form-control form-control-sm"
+                        value="{{ old('google_doc_url', $proposal->google_doc_url) }}"
+                        placeholder="https://docs.google.com/document/d/...">
                 </div>
             </div>
         </div>
