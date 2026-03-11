@@ -312,6 +312,11 @@
             <span>My Tasks</span>
         </a>
 
+        <a href="{{ route('workload.index') }}" class="nav-link {{ request()->routeIs('workload*') ? 'active' : '' }}">
+            <i class="bi bi-bar-chart-steps"></i>
+            <span>My Pipeline</span>
+        </a>
+
         <a href="{{ route('approvals.index') }}" class="nav-link {{ request()->routeIs('approvals*') ? 'active' : '' }}">
             <i class="bi bi-shield-check"></i>
             <span>Approval Center</span>

@@ -20,6 +20,8 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProposalLineItemController;
 use App\Http\Controllers\BillingScheduleController;
 use App\Http\Controllers\ProposalDeliverableController;
+use App\Http\Controllers\WorkloadController;
+use App\Http\Controllers\ProjectNoteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -104,6 +106,12 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::put('/tasks/{task}',                                                [ProjectController::class, 'updateTask'])->name('projects.tasks.update');
     Route::delete('/tasks/{task}',                                             [ProjectController::class, 'destroyTask'])->name('projects.tasks.destroy');
 
+    // Project Notes / Todos
+    Route::post('/projects/{project}/notes',                      [ProjectNoteController::class, 'store'])->name('projects.notes.store');
+    Route::put('/projects/{project}/notes/{note}',                [ProjectNoteController::class, 'update'])->name('projects.notes.update');
+    Route::patch('/projects/{project}/notes/{note}/toggle',       [ProjectNoteController::class, 'toggle'])->name('projects.notes.toggle');
+    Route::delete('/projects/{project}/notes/{note}',             [ProjectNoteController::class, 'destroy'])->name('projects.notes.destroy');
+
     // Contacts
     Route::resource('contacts', ContactController::class);
     Route::resource('companies', CompanyController::class);
@@ -117,6 +125,16 @@ Route::middleware(['auth.kore'])->group(function () {
     // My Tasks
     Route::get('/my-tasks',                 [TaskController::class, 'myTasks'])->name('tasks.mine');
     Route::put('/my-tasks/{assignment}',    [TaskController::class, 'updateAssignment'])->name('tasks.update');
+
+    // Workload Pipeline
+    Route::get('/workload',                     [WorkloadController::class, 'index'])->name('workload.index');
+    Route::get('/workload/team',                [WorkloadController::class, 'team'])->name('workload.team');
+    Route::get('/workload/week-data',           [WorkloadController::class, 'weekData'])->name('workload.week-data');
+    Route::post('/workload/schedule',           [WorkloadController::class, 'schedule'])->name('workload.schedule');
+    Route::post('/workload/assign',             [WorkloadController::class, 'assign'])->name('workload.assign');
+    Route::put('/workload/items/{item}',        [WorkloadController::class, 'update'])->name('workload.items.update');
+    Route::delete('/workload/items/{item}',     [WorkloadController::class, 'destroy'])->name('workload.items.destroy');
+    Route::post('/workload/reorder',            [WorkloadController::class, 'reorder'])->name('workload.reorder');
 
     // Approval Center
     Route::get('/approvals',                    [ApprovalController::class, 'index'])->name('approvals.index');

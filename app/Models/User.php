@@ -70,6 +70,11 @@ class User extends Authenticatable
         return $this->hasMany(TaskAssignment::class, 'user_id');
     }
 
+    public function workScheduleItems(): HasMany
+    {
+        return $this->hasMany(WorkScheduleItem::class, 'user_id');
+    }
+
     public function timeOffRequests(): HasMany
     {
         return $this->hasMany(TimeOffRequest::class, 'user_id');

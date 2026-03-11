@@ -82,6 +82,16 @@ class Project extends Model
         return $this->hasMany(TimesheetEntry::class, 'project_id');
     }
 
+    public function notes(): HasMany
+    {
+        return $this->hasMany(ProjectNote::class, 'project_id')->orderBy('priority_order')->orderByDesc('created_at');
+    }
+
+    public function todos(): HasMany
+    {
+        return $this->hasMany(ProjectNote::class, 'project_id')->where('is_todo', true)->orderBy('is_done')->orderBy('due_date');
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     /** A project is billable when it has an approved linked proposal. */

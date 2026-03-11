@@ -150,6 +150,7 @@ class ProjectController extends Controller
             'status',
             'proposal',
             'deliverables.milestones.tasks.assignments.user',
+            'notes.user',
         ]);
 
         $communications = \App\Models\ProjectCommunication::where('project_id', $project->id)

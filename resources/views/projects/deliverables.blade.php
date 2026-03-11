@@ -35,10 +35,21 @@
                     @if($deliverable->description)
                     <div class="deliverable-desc-display" style="font-size:0.78rem; color:#6b7280; margin-top:2px;">{{ $deliverable->description }}</div>
                     @endif
+                    <div class="d-flex gap-3 mt-1" style="font-size:0.72rem; color:#9ca3af;">
+                        @if($deliverable->budget_hours > 0)
+                        <span><i class="bi bi-hourglass me-1"></i>{{ number_format($deliverable->budget_hours, 1) }}h budget</span>
+                        @endif
+                        @if($deliverable->deliverable_fee > 0)
+                        <span class="text-success fw-600">${{ number_format($deliverable->deliverable_fee, 0) }}</span>
+                        @endif
+                        @if($deliverable->due_date)
+                        <span><i class="bi bi-calendar3 me-1"></i>Due {{ $deliverable->due_date->format('M j') }}</span>
+                        @endif
+                    </div>
                 </div>
                 <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-outline-secondary"
-                        onclick="openEditDeliverable({{ $deliverable->id }}, '{{ addslashes($deliverable->name) }}', '{{ addslashes($deliverable->description ?? '') }}')"
+                        onclick="openEditDeliverable({{ $deliverable->id }}, '{{ addslashes($deliverable->name) }}', '{{ addslashes($deliverable->description ?? '') }}', {{ $deliverable->budget_hours ?? 0 }}, {{ $deliverable->rate ?? 0 }}, {{ $deliverable->deliverable_fee ?? 0 }}, '{{ $deliverable->due_date?->format('Y-m-d') ?? '' }}')"
                         title="Edit deliverable">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -62,7 +73,7 @@
                     </div>
                     <div class="d-flex gap-1">
                         <button class="btn btn-link btn-sm py-0 px-1 text-secondary"
-                            onclick="openEditMilestone({{ $milestone->id }}, '{{ addslashes($milestone->name) }}', '{{ addslashes($milestone->description ?? '') }}')"
+                            onclick="openEditMilestone({{ $milestone->id }}, '{{ addslashes($milestone->name) }}', '{{ addslashes($milestone->description ?? '') }}', {{ $milestone->budget_hours ?? 0 }}, {{ $milestone->rate ?? 0 }}, {{ $milestone->deliverable_fee ?? 0 }}, '{{ $milestone->due_date?->format('Y-m-d') ?? '' }}', '{{ $milestone->billing_status ?? 'pending' }}')"
                             title="Edit milestone" style="font-size:0.75rem;">
                             <i class="bi bi-pencil"></i>
                         </button>
@@ -115,9 +126,13 @@
                         </select>
                     </form>
 
+                    @if($task->budget_hours > 0)
+                    <span style="font-size:0.68rem; color:#9ca3af;"><i class="bi bi-hourglass me-1"></i>{{ number_format($task->budget_hours, 1) }}h</span>
+                    @endif
+
                     {{-- Edit task --}}
                     <button class="btn btn-link btn-sm py-0 px-1 text-secondary"
-                        onclick="openEditTask({{ $task->id }}, '{{ addslashes($task->name) }}', '{{ addslashes($task->description ?? '') }}', '{{ $task->start_date?->format('Y-m-d') ?? '' }}', '{{ $task->end_date?->format('Y-m-d') ?? '' }}', '{{ $task->status }}')"
+                        onclick="openEditTask({{ $task->id }}, '{{ addslashes($task->name) }}', '{{ addslashes($task->description ?? '') }}', '{{ $task->start_date?->format('Y-m-d') ?? '' }}', '{{ $task->end_date?->format('Y-m-d') ?? '' }}', '{{ $task->status }}', {{ $task->budget_hours ?? 0 }}, {{ $task->rate ?? 0 }})"
                         title="Edit task" style="font-size:0.75rem;">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -141,19 +156,22 @@
                     <form action="{{ route('projects.tasks.store', $milestone) }}" method="POST" class="mt-2">
                         @csrf
                         <div class="row g-2">
-                            <div class="col-sm-5">
+                            <div class="col-sm-12">
                                 <input type="text" name="name" class="form-control form-control-sm" placeholder="Task name" required>
+                            </div>
+                            <div class="col-sm-3">
+                                <input type="number" name="budget_hours" class="form-control form-control-sm" placeholder="Budget hrs" step="0.25" min="0">
                             </div>
                             <div class="col-sm-3">
                                 <input type="date" name="end_date" class="form-control form-control-sm" placeholder="Due date">
                             </div>
-                            <div class="col-sm-2">
+                            <div class="col-sm-3">
                                 <select name="status" class="form-select form-select-sm">
                                     <option value="pending">Pending</option>
                                     <option value="in_progress">In Progress</option>
                                 </select>
                             </div>
-                            <div class="col-sm-2">
+                            <div class="col-sm-3">
                                 <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
                             </div>
                         </div>
@@ -169,9 +187,19 @@
                 </summary>
                 <form action="{{ route('projects.milestones.store', [$project, $deliverable]) }}" method="POST" class="mt-2">
                     @csrf
-                    <div class="d-flex gap-2">
-                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Milestone name" required>
-                        <button type="submit" class="btn btn-sm btn-outline-primary">Add</button>
+                    <div class="row g-2">
+                        <div class="col-sm-5">
+                            <input type="text" name="name" class="form-control form-control-sm" placeholder="Milestone name" required>
+                        </div>
+                        <div class="col-sm-3">
+                            <input type="number" name="budget_hours" class="form-control form-control-sm" step="0.25" min="0" placeholder="Budget hrs">
+                        </div>
+                        <div class="col-sm-2">
+                            <input type="date" name="due_date" class="form-control form-control-sm" placeholder="Due date">
+                        </div>
+                        <div class="col-sm-2">
+                            <button type="submit" class="btn btn-sm btn-outline-primary w-100">Add</button>
+                        </div>
                     </div>
                 </form>
             </details>
@@ -196,9 +224,29 @@
                     <label class="form-label" style="font-size:0.78rem;">Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control form-control-sm" placeholder="e.g. Phase 1 — Design" required>
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label" style="font-size:0.78rem;">Description</label>
                     <textarea name="description" class="form-control form-control-sm" rows="2" placeholder="Optional details..."></textarea>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.75rem;">Budget Hours</label>
+                        <input type="number" name="budget_hours" class="form-control form-control-sm" step="0.25" min="0" placeholder="0.00">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.75rem;">Rate ($/hr)</label>
+                        <input type="number" name="rate" class="form-control form-control-sm" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.75rem;">Fixed Fee ($)</label>
+                        <input type="number" name="deliverable_fee" class="form-control form-control-sm" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.75rem;">Due Date</label>
+                        <input type="date" name="due_date" class="form-control form-control-sm">
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm w-100">
                     <i class="bi bi-plus-lg me-1"></i> Add Deliverable
@@ -231,9 +279,27 @@
                         <label class="form-label" style="font-size:0.78rem;">Name <span class="text-danger">*</span></label>
                         <input type="text" name="name" id="editDeliverableName" class="form-control form-control-sm" required>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label" style="font-size:0.78rem;">Description</label>
                         <textarea name="description" id="editDeliverableDesc" class="form-control form-control-sm" rows="2"></textarea>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label" style="font-size:0.75rem;">Budget Hours</label>
+                            <input type="number" name="budget_hours" id="editDeliverableBudgetHours" class="form-control form-control-sm" step="0.25" min="0">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label" style="font-size:0.75rem;">Rate ($/hr)</label>
+                            <input type="number" name="rate" id="editDeliverableRate" class="form-control form-control-sm" step="0.01" min="0">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label" style="font-size:0.75rem;">Fixed Fee ($)</label>
+                            <input type="number" name="deliverable_fee" id="editDeliverableFee" class="form-control form-control-sm" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" style="font-size:0.75rem;">Due Date</label>
+                        <input type="date" name="due_date" id="editDeliverableDueDate" class="form-control form-control-sm">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -260,9 +326,38 @@
                         <label class="form-label" style="font-size:0.78rem;">Name <span class="text-danger">*</span></label>
                         <input type="text" name="name" id="editMilestoneName" class="form-control form-control-sm" required>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label" style="font-size:0.78rem;">Description</label>
                         <textarea name="description" id="editMilestoneDesc" class="form-control form-control-sm" rows="2"></textarea>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label" style="font-size:0.75rem;">Budget Hours</label>
+                            <input type="number" name="budget_hours" id="editMilestoneBudgetHours" class="form-control form-control-sm" step="0.25" min="0">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label" style="font-size:0.75rem;">Rate ($/hr)</label>
+                            <input type="number" name="rate" id="editMilestoneRate" class="form-control form-control-sm" step="0.01" min="0">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label" style="font-size:0.75rem;">Fixed Fee ($)</label>
+                            <input type="number" name="deliverable_fee" id="editMilestoneFee" class="form-control form-control-sm" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-0">
+                        <div class="col-6">
+                            <label class="form-label" style="font-size:0.75rem;">Due Date</label>
+                            <input type="date" name="due_date" id="editMilestoneDueDate" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" style="font-size:0.75rem;">Billing Status</label>
+                            <select name="billing_status" id="editMilestoneBillingStatus" class="form-select form-select-sm">
+                                <option value="pending">Pending</option>
+                                <option value="ready_to_bill">Ready to Bill</option>
+                                <option value="invoiced">Invoiced</option>
+                                <option value="paid">Paid</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -303,14 +398,24 @@
                             <input type="date" name="end_date" id="editTaskEnd" class="form-control form-control-sm">
                         </div>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label" style="font-size:0.78rem;">Status</label>
-                        <select name="status" id="editTaskStatus" class="form-select form-select-sm">
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="complete">Complete</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                    <div class="row g-2 mb-3">
+                        <div class="col-sm-6">
+                            <label class="form-label" style="font-size:0.78rem;">Status</label>
+                            <select name="status" id="editTaskStatus" class="form-select form-select-sm">
+                                <option value="pending">Pending</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="complete">Complete</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label" style="font-size:0.78rem;">Budget Hours</label>
+                            <input type="number" name="budget_hours" id="editTaskBudgetHours" class="form-control form-control-sm" step="0.25" min="0">
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label" style="font-size:0.78rem;">Rate ($/hr)</label>
+                            <input type="number" name="rate" id="editTaskRate" class="form-control form-control-sm" step="0.01" min="0">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -326,27 +431,38 @@
 <script>
 const PROJECT_ID = {{ $project->id }};
 
-function openEditDeliverable(id, name, desc) {
+function openEditDeliverable(id, name, desc, budgetHours, rate, fee, dueDate) {
     document.getElementById('editDeliverableForm').action = `/projects/${PROJECT_ID}/deliverables/${id}`;
-    document.getElementById('editDeliverableName').value = name;
-    document.getElementById('editDeliverableDesc').value = desc;
+    document.getElementById('editDeliverableName').value        = name;
+    document.getElementById('editDeliverableDesc').value        = desc;
+    document.getElementById('editDeliverableBudgetHours').value = budgetHours || '';
+    document.getElementById('editDeliverableRate').value        = rate || '';
+    document.getElementById('editDeliverableFee').value         = fee || '';
+    document.getElementById('editDeliverableDueDate').value     = dueDate || '';
     new bootstrap.Modal(document.getElementById('editDeliverableModal')).show();
 }
 
-function openEditMilestone(id, name, desc) {
+function openEditMilestone(id, name, desc, budgetHours, rate, fee, dueDate, billingStatus) {
     document.getElementById('editMilestoneForm').action = `/milestones/${id}`;
-    document.getElementById('editMilestoneName').value = name;
-    document.getElementById('editMilestoneDesc').value = desc;
+    document.getElementById('editMilestoneName').value          = name;
+    document.getElementById('editMilestoneDesc').value          = desc;
+    document.getElementById('editMilestoneBudgetHours').value   = budgetHours || '';
+    document.getElementById('editMilestoneRate').value          = rate || '';
+    document.getElementById('editMilestoneFee').value           = fee || '';
+    document.getElementById('editMilestoneDueDate').value       = dueDate || '';
+    document.getElementById('editMilestoneBillingStatus').value = billingStatus || 'pending';
     new bootstrap.Modal(document.getElementById('editMilestoneModal')).show();
 }
 
-function openEditTask(id, name, desc, start, end, status) {
+function openEditTask(id, name, desc, start, end, status, budgetHours, rate) {
     document.getElementById('editTaskForm').action = `/tasks/${id}`;
-    document.getElementById('editTaskName').value  = name;
-    document.getElementById('editTaskDesc').value  = desc;
-    document.getElementById('editTaskStart').value = start;
-    document.getElementById('editTaskEnd').value   = end;
-    document.getElementById('editTaskStatus').value = status;
+    document.getElementById('editTaskName').value         = name;
+    document.getElementById('editTaskDesc').value         = desc;
+    document.getElementById('editTaskStart').value        = start;
+    document.getElementById('editTaskEnd').value          = end;
+    document.getElementById('editTaskStatus').value       = status;
+    document.getElementById('editTaskBudgetHours').value  = budgetHours || '';
+    document.getElementById('editTaskRate').value         = rate || '';
     new bootstrap.Modal(document.getElementById('editTaskModal')).show();
 }
 </script>
