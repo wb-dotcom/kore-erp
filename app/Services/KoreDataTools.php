@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Company;
+use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\ProjectCommunication;
@@ -389,6 +391,88 @@ class KoreDataTools
 
         foreach ($byProject as $row) {
             $lines[] = "  {$row->project_number} \"{$row->title}\": {$row->total_hours} hrs";
+        }
+
+        return implode("\n", $lines);
+    }
+
+    // ── CRM Data ───────────────────────────────────────────────────────────────
+
+    /**
+     * All companies with sector, region, contact count, project count, and status.
+     */
+    public function getCompaniesSummary(): string
+    {
+        $companies = Company::with(['sector', 'region'])
+            ->withCount(['contacts', 'projects'])
+            ->orderBy('name')
+            ->get();
+
+        if ($companies->isEmpty()) {
+            return "COMPANIES: No companies are in the system.";
+        }
+
+        $active   = $companies->where('is_active', true)->count();
+        $inactive = $companies->where('is_active', false)->count();
+
+        $lines = [
+            "COMPANIES ({$companies->count()} total | {$active} active | {$inactive} inactive):",
+        ];
+
+        foreach ($companies as $co) {
+            $status   = $co->is_active ? 'Active' : 'Inactive';
+            $phone    = $co->phone ? " | Phone: {$co->phone}" : '';
+            $website  = $co->website ? " | Web: {$co->website}" : '';
+            $lines[]  = "  • {$co->name} [{$status}]"
+                . " | Sector: " . ($co->sector?->name ?? '—')
+                . " | Region: " . ($co->region?->name ?? '—')
+                . " | Contacts: {$co->contacts_count} | Projects: {$co->projects_count}"
+                . $phone . $website;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * All contacts for a specific company, or all contacts if no company given.
+     */
+    public function getCompanyContacts(?int $companyId = null): string
+    {
+        $query = Contact::with(['company', 'contactType'])
+            ->orderBy('last_name')
+            ->orderBy('first_name');
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        } else {
+            $query->limit(50);
+        }
+
+        $contacts = $query->get();
+
+        if ($contacts->isEmpty()) {
+            return $companyId
+                ? "No contacts found for this company."
+                : "CONTACTS: No contacts are in the system.";
+        }
+
+        $label = $companyId
+            ? "CONTACTS for " . ($contacts->first()->company?->name ?? "Company #{$companyId}")
+            : "ALL CONTACTS ({$contacts->count()} shown)";
+
+        $lines = ["{$label}:"];
+
+        foreach ($contacts as $c) {
+            $status  = $c->is_active ? 'Active' : 'Inactive';
+            $phone   = $c->business_phone ?? $c->mobile_phone ?? null;
+            $phoneStr = $phone ? " | Phone: {$phone}" : '';
+            $company  = $companyId ? '' : " | Company: " . ($c->company?->name ?? '—');
+            $lines[]  = "  • {$c->full_name} [{$status}]"
+                . " | Title: " . ($c->title ?? '—')
+                . " | Type: " . ($c->contactType?->name ?? '—')
+                . " | Email: " . ($c->email ?? '—')
+                . $phoneStr
+                . $company;
         }
 
         return implode("\n", $lines);

@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use App\Models\Project;
 use App\Models\Proposal;
 use App\Models\SystemSetting;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Assembles the full AI context for each chat turn.
@@ -63,6 +65,8 @@ YOU MUST FOLLOW THESE RULES WITHOUT EXCEPTION:
 ══════════════════════════════════════════════════════════
 
 YOUR CAPABILITIES (when data exists in the database):
+- Companies: full client/vendor list with sector, region, contact count, project count
+- Contacts: names, titles, emails, phone numbers — searchable by company
 - Projects: budgets, phases, team assignments, percent-complete, schedule
 - Proposals and fee worksheets
 - Client communications (inbound email)
@@ -144,6 +148,32 @@ PROMPT;
         if ($this->containsAny($lowerMsg, ['timesheet', 'hours logged', 'hours worked', 'my time', 'utilization'])) {
             $contextBlocks[] = $this->dataTools->getUserTimesheetSummary($user);
             $sources[]       = ['type' => 'timesheets', 'label' => 'Timesheet data'];
+        }
+
+        if ($this->containsAny($lowerMsg, ['compan', 'client', 'vendor', 'customer', 'who do we work with', 'our clients', 'our companies'])) {
+            // Check if the message names a specific company
+            $namedCompany = $this->detectCompany($userMessage);
+            if ($namedCompany) {
+                $contextBlocks[] = $this->dataTools->getCompanyContacts($namedCompany->id);
+                $sources[]       = ['type' => 'company', 'label' => $namedCompany->name . ' contacts'];
+            } else {
+                $contextBlocks[] = $this->dataTools->getCompaniesSummary();
+                $sources[]       = ['type' => 'companies', 'label' => 'Companies list'];
+            }
+        }
+
+        if ($this->containsAny($lowerMsg, ['contact', 'contacts', 'person', 'people', 'who is', 'who works at', 'reach out', 'email address', 'phone number'])) {
+            $namedCompany = $this->detectCompany($userMessage);
+            if ($namedCompany) {
+                // Already added above if both "company" and "contact" keywords hit — avoid duplicate
+                if (! $this->containsAny($lowerMsg, ['compan', 'client', 'vendor', 'customer'])) {
+                    $contextBlocks[] = $this->dataTools->getCompanyContacts($namedCompany->id);
+                    $sources[]       = ['type' => 'company', 'label' => $namedCompany->name . ' contacts'];
+                }
+            } else {
+                $contextBlocks[] = $this->dataTools->getCompanyContacts();
+                $sources[]       = ['type' => 'contacts', 'label' => 'Contacts list'];
+            }
         }
 
         if ($this->containsAny($lowerMsg, ['invoice', 'billing', 'payment', 'outstanding', 'accounts receivable'])) {
@@ -248,6 +278,29 @@ PROMPT;
         }
 
         return $proposals;
+    }
+
+    /**
+     * Try to match a company name from the message against all companies in the DB.
+     * Uses case-insensitive substring matching so "ford" matches "Ford Motor Company".
+     */
+    private function detectCompany(string $message): ?Company
+    {
+        $companies = Company::orderByDesc(DB::raw('LENGTH(name)'))->get(['id', 'name']);
+
+        $lower = mb_strtolower($message);
+        foreach ($companies as $company) {
+            if (str_contains($lower, mb_strtolower($company->name))) {
+                return $company;
+            }
+            // Also match on first significant word (e.g. "Ford" → "Ford Motor Company")
+            $firstWord = mb_strtolower(explode(' ', trim($company->name))[0]);
+            if (strlen($firstWord) > 3 && str_contains($lower, $firstWord)) {
+                return $company;
+            }
+        }
+
+        return null;
     }
 
     private function containsAny(string $text, array $needles): bool
