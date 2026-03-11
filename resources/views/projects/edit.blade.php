@@ -118,9 +118,21 @@
                     value="{{ old('end_date', $project->end_date?->format('Y-m-d')) }}">
             </div>
             <div class="col-sm-4">
-                <label class="form-label">Total Budget ($)</label>
-                <input type="number" step="0.01" name="total_budget" class="form-control form-control-sm"
-                    value="{{ old('total_budget', $project->total_budget) }}">
+                <label class="form-label">
+                    Total Budget ($)
+                    @if($project->proposal_id)
+                        <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">From Proposal</span>
+                    @endif
+                </label>
+                <input type="number" step="0.01" name="total_budget"
+                    class="form-control form-control-sm{{ $project->proposal_id ? ' bg-light' : '' }}"
+                    value="{{ old('total_budget', $project->total_budget) }}"
+                    {{ $project->proposal_id ? 'readonly' : '' }}>
+                @if($project->proposal_id)
+                    <div style="font-size:0.72rem; color:#6b7280; margin-top:3px;">
+                        Set from the linked proposal. Edit the proposal to change this.
+                    </div>
+                @endif
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>

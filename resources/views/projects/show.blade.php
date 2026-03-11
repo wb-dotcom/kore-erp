@@ -140,7 +140,7 @@
                     data-bs-target="#notes-pane" type="button" role="tab"
                     style="font-size:0.8rem;">
                     <i class="bi bi-journal-text me-1"></i> Notes &amp; Todos
-                    @php $openTodos = $project->notes->where('is_todo', true)->where('is_done', false)->count(); @endphp
+                    @php $openTodos = $project->projectNotes->where('is_todo', true)->where('is_done', false)->count(); @endphp
                     @if($openTodos > 0)
                     <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">{{ $openTodos }}</span>
                     @endif
@@ -307,7 +307,7 @@
             </div>
 
             {{-- Todos Section --}}
-            @php $todos = $project->notes->where('is_todo', true); @endphp
+            @php $todos = $project->projectNotes->where('is_todo', true); @endphp
             @if($todos->count() > 0)
             <div class="mb-4">
                 <div class="fw-600 mb-2" style="font-size:0.78rem; color:#374151; text-transform:uppercase; letter-spacing:.05em;">
@@ -349,7 +349,7 @@
             @endif
 
             {{-- General Notes Section --}}
-            @php $generalNotes = $project->notes->where('is_todo', false); @endphp
+            @php $generalNotes = $project->projectNotes->where('is_todo', false); @endphp
             <div>
                 <div class="fw-600 mb-2" style="font-size:0.78rem; color:#374151; text-transform:uppercase; letter-spacing:.05em;">
                     <i class="bi bi-journal-text me-1 text-primary"></i>PM Notes

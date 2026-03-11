@@ -82,12 +82,12 @@ class Project extends Model
         return $this->hasMany(TimesheetEntry::class, 'project_id');
     }
 
-    public function notes(): HasMany
+    public function projectNotes(): HasMany
     {
         return $this->hasMany(ProjectNote::class, 'project_id')->orderBy('priority_order')->orderByDesc('created_at');
     }
 
-    public function todos(): HasMany
+    public function projectTodos(): HasMany
     {
         return $this->hasMany(ProjectNote::class, 'project_id')->where('is_todo', true)->orderBy('is_done')->orderBy('due_date');
     }

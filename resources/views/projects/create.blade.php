@@ -139,9 +139,16 @@
                             value="{{ old('end_date') }}">
                     </div>
                     <div class="col-sm-4">
-                        <label class="form-label">Total Budget ($)</label>
-                        <input type="number" step="0.01" name="total_budget" class="form-control form-control-sm"
+                        <label class="form-label">
+                            Total Budget ($)
+                            <span id="budgetLockBadge" class="badge bg-secondary ms-1" style="display:none; font-size:0.65rem;">From Proposal</span>
+                        </label>
+                        <input type="number" step="0.01" name="total_budget" id="totalBudgetInput"
+                            class="form-control form-control-sm"
                             value="{{ old('total_budget') }}" placeholder="0.00">
+                        <div id="budgetLockHint" style="display:none; font-size:0.72rem; color:#6b7280; margin-top:3px;">
+                            Set from the linked proposal. Edit the proposal to change this.
+                        </div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Notes</label>
@@ -190,7 +197,9 @@ function onProposalChange() {
     const yearDisplay       = document.getElementById('proj_year_display');
     const titleInput        = document.getElementById('proj_title');
     const titleHint         = document.getElementById('titleHint');
-    const budgetInput       = document.querySelector('[name="total_budget"]');
+    const budgetInput       = document.getElementById('totalBudgetInput');
+    const budgetLockBadge   = document.getElementById('budgetLockBadge');
+    const budgetLockHint    = document.getElementById('budgetLockHint');
 
     if (pid) {
         // Proposal selected → billable
@@ -214,11 +223,15 @@ function onProposalChange() {
             if (titleHint) titleHint.style.display = '';
         }
 
-        // Pre-fill total budget from proposal fee
+        // Lock total budget to proposal fee
         const fee = opt.dataset.fee;
-        if (budgetInput && fee) {
-            budgetInput.value = parseFloat(fee).toFixed(2);
+        if (budgetInput) {
+            budgetInput.value = fee ? parseFloat(fee).toFixed(2) : '0.00';
+            budgetInput.readOnly = true;
+            budgetInput.classList.add('bg-light');
         }
+        if (budgetLockBadge) budgetLockBadge.style.display = '';
+        if (budgetLockHint)  budgetLockHint.style.display  = '';
     } else {
         // No proposal → non-billable
         nonBillableNotice.style.display = '';
@@ -234,6 +247,14 @@ function onProposalChange() {
         if (K5_COMPANY_ID && companySelect) {
             companySelect.value = K5_COMPANY_ID;
         }
+
+        // Unlock budget
+        if (budgetInput) {
+            budgetInput.readOnly = false;
+            budgetInput.classList.remove('bg-light');
+        }
+        if (budgetLockBadge) budgetLockBadge.style.display = 'none';
+        if (budgetLockHint)  budgetLockHint.style.display  = 'none';
     }
 }
 

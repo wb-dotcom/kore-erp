@@ -20,7 +20,7 @@ class ProjectNoteController extends Controller
             'priority_order' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $note = $project->notes()->create([
+        $note = $project->projectNotes()->create([
             'user_id'        => auth()->id(),
             'content'        => $data['content'],
             'is_todo'        => $data['is_todo'] ?? false,

@@ -121,6 +121,8 @@ class ProjectController extends Controller
             }
             // Auto-set year from proposal
             $data['year'] = $proposal->year;
+            // Always lock total_budget to proposal contract value
+            $data['total_budget'] = $proposal->contract_value ?? $proposal->total_fee ?? 0;
         } else {
             // No proposal = non-billable; default to K5 Company
             $data['proposal_id'] = null;
@@ -159,7 +161,7 @@ class ProjectController extends Controller
             'status',
             'proposal',
             'deliverables.milestones.tasks.assignments.user',
-            'notes.user',
+            'projectNotes.user',
         ]);
 
         $communications = \App\Models\ProjectCommunication::where('project_id', $project->id)
@@ -222,6 +224,15 @@ class ProjectController extends Controller
             // Inherit client from proposal
             if (empty($data['company_id']) && $proposal->company_id) {
                 $data['company_id'] = $proposal->company_id;
+            }
+        }
+
+        // Always lock total_budget to proposal contract value when a proposal is linked
+        $linkedProposalId = $data['proposal_id'] ?? $project->proposal_id;
+        if (!empty($linkedProposalId)) {
+            $linkedProposal = Proposal::find($linkedProposalId);
+            if ($linkedProposal) {
+                $data['total_budget'] = $linkedProposal->contract_value ?? $linkedProposal->total_fee ?? 0;
             }
         }
 
