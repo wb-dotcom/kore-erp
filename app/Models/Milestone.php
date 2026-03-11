@@ -10,7 +10,17 @@ class Milestone extends Model
 {
     protected $table = 'milestones';
 
-    protected $fillable = ['deliverable_id', 'name', 'description', 'sort_order'];
+    protected $fillable = [
+        'deliverable_id', 'name', 'description', 'sort_order',
+        'budget_hours', 'rate', 'deliverable_fee', 'billing_status', 'due_date',
+    ];
+
+    protected $casts = [
+        'budget_hours'    => 'float',
+        'rate'            => 'float',
+        'deliverable_fee' => 'float',
+        'due_date'        => 'date',
+    ];
 
     public function deliverable(): BelongsTo
     {

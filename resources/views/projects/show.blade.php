@@ -88,9 +88,22 @@
                     <div style="font-size:0.72rem; color:#9ca3af; font-weight:600; text-transform:uppercase;">Linked Proposal</div>
                     <div style="font-size:0.85rem; margin-top:2px;">
                         <a href="{{ route('proposals.show', $project->proposal) }}" class="text-decoration-none" style="color:#4c8bf5;">
-                            {{ $project->proposal->year }}-{{ $project->proposal->proposal_number }}
-                            — {{ $project->proposal->title }}
+                            {{ $project->proposal->ref }} — {{ $project->proposal->title }}
                         </a>
+                        <span class="badge bg-success ms-1" style="font-size:0.65rem;">Billable</span>
+                        @if($project->proposal->billing_type)
+                        <span class="badge bg-light text-dark border ms-1" style="font-size:0.65rem;">
+                            {{ ucwords(str_replace('_', ' ', $project->proposal->billing_type)) }}
+                        </span>
+                        @endif
+                    </div>
+                </div>
+                @else
+                <div class="col-12">
+                    <div style="font-size:0.72rem; color:#9ca3af; font-weight:600; text-transform:uppercase;">Billing</div>
+                    <div style="font-size:0.85rem; margin-top:2px;">
+                        <span class="badge bg-secondary">Non-Billable</span>
+                        <span style="font-size:0.75rem; color:#6b7280; margin-left:6px;">No proposal linked</span>
                     </div>
                 </div>
                 @endif
@@ -139,14 +152,48 @@
             </div>
 
             @forelse($project->deliverables as $deliverable)
-            <div class="mb-3">
-                <div class="fw-600 mb-1" style="font-size:0.85rem;">
-                    <i class="bi bi-folder2 me-1" style="color:#4c8bf5;"></i>{{ $deliverable->name }}
+            <div class="mb-3 border rounded" style="overflow:hidden;">
+                <div class="d-flex align-items-center gap-2 px-3 py-2" style="background:#f8fafc; border-bottom:1px solid #e5e7eb;">
+                    <i class="bi bi-folder2 text-primary"></i>
+                    <span class="fw-600" style="font-size:0.85rem; flex:1;">{{ $deliverable->name }}</span>
+                    @if($deliverable->budget_hours > 0)
+                    <span style="font-size:0.72rem; color:#6b7280;">
+                        <i class="bi bi-clock me-1"></i>{{ number_format($deliverable->budget_hours, 1) }}h
+                    </span>
+                    @endif
+                    @if($deliverable->deliverable_fee)
+                    <span style="font-size:0.72rem; color:#059669; font-weight:600;">
+                        ${{ number_format($deliverable->deliverable_fee, 0) }}
+                    </span>
+                    @endif
+                    @if($deliverable->due_date)
+                    <span style="font-size:0.72rem; color:#6b7280;">
+                        <i class="bi bi-calendar2 me-1"></i>{{ $deliverable->due_date->format('M d') }}
+                    </span>
+                    @endif
                 </div>
                 @foreach($deliverable->milestones as $milestone)
-                <div class="ms-3 mb-2">
-                    <div style="font-size:0.8rem; color:#374151; font-weight:500;">
-                        <i class="bi bi-flag me-1" style="color:#f59e0b;"></i>{{ $milestone->name }}
+                @php
+                    $bsColors = ['pending'=>'secondary','ready_to_bill'=>'warning','invoiced'=>'primary','paid'=>'success'];
+                @endphp
+                <div class="px-3 py-2 border-bottom" style="background:#fff;">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-flag" style="color:#f59e0b; font-size:0.8rem;"></i>
+                        <span style="font-size:0.8rem; color:#374151; font-weight:500; flex:1;">{{ $milestone->name }}</span>
+                        @if($milestone->budget_hours > 0)
+                        <span style="font-size:0.7rem; color:#6b7280;"><i class="bi bi-clock me-1"></i>{{ number_format($milestone->budget_hours, 1) }}h</span>
+                        @endif
+                        @if($milestone->deliverable_fee)
+                        <span style="font-size:0.7rem; color:#059669; font-weight:600;">${{ number_format($milestone->deliverable_fee, 0) }}</span>
+                        @endif
+                        @if($milestone->due_date)
+                        <span style="font-size:0.7rem; color:#6b7280;"><i class="bi bi-calendar2 me-1"></i>{{ $milestone->due_date->format('M d') }}</span>
+                        @endif
+                        @if($milestone->billing_status && $milestone->billing_status !== 'pending')
+                        <span class="badge bg-{{ $bsColors[$milestone->billing_status] ?? 'secondary' }}" style="font-size:0.62rem;">
+                            {{ ucwords(str_replace('_', ' ', $milestone->billing_status)) }}
+                        </span>
+                        @endif
                     </div>
                     @foreach($milestone->tasks as $task)
                     <div class="ms-3 d-flex align-items-center gap-2 mt-1">
@@ -157,8 +204,11 @@
                                 default       => 'bi-circle text-secondary',
                             };
                         @endphp
-                        <i class="bi {{ $tIcon }}" style="font-size:0.75rem;"></i>
-                        <span style="font-size:0.78rem; color:#6b7280;">{{ $task->name }}</span>
+                        <i class="bi {{ $tIcon }}" style="font-size:0.72rem;"></i>
+                        <span style="font-size:0.75rem; color:#6b7280; flex:1;">{{ $task->name }}</span>
+                        @if($task->budget_hours > 0)
+                        <span style="font-size:0.68rem; color:#9ca3af;">{{ number_format($task->budget_hours, 1) }}h</span>
+                        @endif
                     </div>
                     @endforeach
                 </div>

@@ -77,6 +77,7 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::put('/proposals/{proposal}/deliverables/{deliverable}',                            [ProposalDeliverableController::class, 'updateDeliverable'])->name('proposals.deliverables.update');
     Route::delete('/proposals/{proposal}/deliverables/{deliverable}',                         [ProposalDeliverableController::class, 'destroyDeliverable'])->name('proposals.deliverables.destroy');
     Route::post('/proposals/{proposal}/deliverables/copy-template',                           [ProposalDeliverableController::class, 'copyFromTemplate'])->name('proposals.deliverables.copy-template');
+    Route::put('/proposals/{proposal}/content', [ProposalController::class, 'saveContent'])->name('proposals.content.save');
     Route::get('/proposals/{proposal}/similar',                                               [ProposalController::class, 'similar'])->name('proposals.similar');
     Route::get('/proposals/{proposal}/deliverables/prior/{source}',                          [ProposalDeliverableController::class, 'priorProposalTree'])->name('proposals.deliverables.prior-tree');
     Route::post('/proposals/{proposal}/deliverables/copy-from-proposal',                     [ProposalDeliverableController::class, 'copyFromProposal'])->name('proposals.deliverables.copy-from-proposal');
@@ -180,6 +181,7 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::get('/deliverables/{deliverable}/milestones', [ProjectController::class, 'apiMilestones'])->name('deliverable.milestones');
         Route::get('/milestones/{milestone}/tasks', [ProjectController::class, 'apiTasks'])->name('milestone.tasks');
         Route::get('/company-enrichment', [CompanyController::class, 'nominatimSearch'])->name('company.enrichment');
+        Route::get('/companies/{company}/vendor-code', [CompanyController::class, 'getVendorCode'])->name('company.vendor-code');
         Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData'])->name('dashboard.chart');
         Route::get('/schedule/gantt',       [ScheduleController::class, 'ganttData'])->name('schedule.gantt');
         // Kore AI API

@@ -22,6 +22,7 @@ class Company extends Model
         'zip',
         'country',
         'phone',
+        'vendor_code',
         'is_active',
     ];
 

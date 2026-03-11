@@ -186,7 +186,29 @@ class ProposalController extends Controller
      * GET /proposals/{proposal}/similar
      * Returns JSON: list of similar prior proposals with similarity scores and deliverable overlap.
      */
-    public function similar(Proposal $proposal, ProposalSimilarityService $similarity): JsonResponse
+
+    /**
+     * PUT /proposals/{proposal}/content
+     * AJAX: save rich-text content sections only.
+     */
+    public function saveContent(Request $request, Proposal $proposal)
+    {
+        $data = $request->validate([
+            'executive_summary'    => ['nullable', 'string'],
+            'scope_of_work'        => ['nullable', 'string'],
+            'terms_and_conditions' => ['nullable', 'string'],
+            'description'          => ['nullable', 'string'],
+            'notes'                => ['nullable', 'string'],
+            'google_doc_url'       => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $proposal->update($data);
+        ActivityLog::record('Updated proposal content', 'proposals', $proposal->id, $proposal->title);
+
+        return response()->json(['success' => true]);
+    }
+
+        public function similar(Proposal $proposal, ProposalSimilarityService $similarity): JsonResponse
     {
         $proposal->load(['company', 'sector', 'workType', 'projectType', 'deliverables']);
 

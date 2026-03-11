@@ -61,6 +61,7 @@ class CompanyController extends Controller
             'zip'           => ['nullable', 'string', 'max:20'],
             'country'       => ['nullable', 'string', 'max:100'],
             'phone'         => ['nullable', 'string', 'max:50'],
+            'vendor_code'   => ['nullable', 'string', 'max:50'],
             'is_active'     => ['nullable', 'boolean'],
         ]);
 
@@ -107,6 +108,7 @@ class CompanyController extends Controller
             'zip'           => ['nullable', 'string', 'max:20'],
             'country'       => ['nullable', 'string', 'max:100'],
             'phone'         => ['nullable', 'string', 'max:50'],
+            'vendor_code'   => ['nullable', 'string', 'max:50'],
             'is_active'     => ['nullable', 'boolean'],
         ]);
 
@@ -118,6 +120,11 @@ class CompanyController extends Controller
 
         return redirect()->route('companies.show', $company)
             ->with('success', 'Company updated successfully.');
+    }
+
+    public function getVendorCode(Company $company)
+    {
+        return response()->json(['vendor_code' => $company->vendor_code]);
     }
 
     public function nominatimSearch(Request $request)

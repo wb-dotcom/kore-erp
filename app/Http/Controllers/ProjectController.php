@@ -19,7 +19,7 @@ class ProjectController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Project::with(['company', 'projectManager', 'projectType', 'status'])
+        $query = Project::with(['company', 'projectManager', 'projectType', 'status', 'proposal'])
             ->orderByDesc('year')
             ->orderByDesc('project_number');
 
@@ -40,6 +40,10 @@ class ProjectController extends Controller
 
         if ($year = $request->input('year')) {
             $query->where('year', $year);
+        }
+
+        if ($request->input('billable_only')) {
+            $query->whereNotNull('proposal_id');
         }
 
         $projects  = $query->paginate(25)->withQueryString();
@@ -68,8 +72,12 @@ class ProjectController extends Controller
         $lastNumber = Project::where('year', $year)->max('project_number') ?? 0;
         $nextNumber = $lastNumber + 1;
 
+        // Default internal client for non-billable projects
+        $k5Company = Company::where('name', 'K5 Company')->first();
+
         return view('projects.create', compact(
-            'companies', 'statuses', 'projectTypes', 'managers', 'proposals', 'year', 'nextNumber'
+            'companies', 'statuses', 'projectTypes', 'managers', 'proposals',
+            'year', 'nextNumber', 'k5Company'
         ));
     }
 
@@ -83,20 +91,44 @@ class ProjectController extends Controller
             'project_manager_id' => ['nullable', 'exists:users,id'],
             'project_type_id'    => ['nullable', 'exists:project_types,id'],
             'status_id'          => ['required', 'exists:project_statuses,id'],
-            'proposal_id'        => ['required', 'exists:proposals,id'],
+            'proposal_id'        => ['nullable', 'exists:proposals,id'],
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
             'total_budget'       => ['nullable', 'numeric', 'min:0'],
             'notes'              => ['nullable', 'string'],
         ]);
 
-        $proposal = Proposal::with('status')->find($data['proposal_id']);
-        if (!$proposal->isApproved()) {
-            return back()->withInput()->with('error', 'A project can only be created from an approved proposal.');
-        }
-
-        if ($proposal->project()->exists()) {
-            return back()->withInput()->with('error', 'This proposal already has a project linked to it.');
+        // If linked to a proposal, validate it is approved and not already taken
+        if (!empty($data['proposal_id'])) {
+            $proposal = Proposal::with('status')->find($data['proposal_id']);
+            if (!$proposal->isApproved()) {
+                return back()->withInput()->with('error', 'A project can only be linked to an approved proposal.');
+            }
+            if ($proposal->project()->exists()) {
+                return back()->withInput()->with('error', 'This proposal already has a project linked to it.');
+            }
+            // Auto-inherit client from proposal when not explicitly set
+            if (empty($data['company_id']) && $proposal->company_id) {
+                $data['company_id'] = $proposal->company_id;
+            }
+            // Auto-set year from proposal
+            $data['year'] = $proposal->year;
+        } else {
+            // No proposal = non-billable; default to K5 Company
+            $data['proposal_id'] = null;
+            if (empty($data['company_id'])) {
+                $k5 = Company::where('name', 'K5 Company')->first();
+                if ($k5) {
+                    $data['company_id'] = $k5->id;
+                }
+            }
+            // Auto-set to Non-Billable project type
+            if (empty($data['project_type_id'])) {
+                $nonBillable = ProjectType::whereRaw('LOWER(name) = ?', ['non-billable'])->first();
+                if ($nonBillable) {
+                    $data['project_type_id'] = $nonBillable->id;
+                }
+            }
         }
 
         $data['created_by'] = auth()->id();
@@ -145,8 +177,10 @@ class ProjectController extends Controller
                             ->orderByDesc('proposal_number')
                             ->get();
 
+        $k5Company = Company::where('name', 'K5 Company')->first();
+
         return view('projects.edit', compact(
-            'project', 'companies', 'statuses', 'projectTypes', 'managers', 'proposals'
+            'project', 'companies', 'statuses', 'projectTypes', 'managers', 'proposals', 'k5Company'
         ));
     }
 
@@ -166,6 +200,32 @@ class ProjectController extends Controller
             'total_budget'       => ['nullable', 'numeric', 'min:0'],
             'notes'              => ['nullable', 'string'],
         ]);
+
+        // If a proposal is being linked and it's different from existing, validate
+        if (!empty($data['proposal_id']) && $data['proposal_id'] != $project->proposal_id) {
+            $proposal = Proposal::with('status')->find($data['proposal_id']);
+            if (!$proposal->isApproved()) {
+                return back()->withInput()->with('error', 'Only approved proposals can be linked.');
+            }
+            if ($proposal->project()->exists()) {
+                return back()->withInput()->with('error', 'This proposal already has a project linked to it.');
+            }
+            // Inherit client from proposal
+            if (empty($data['company_id']) && $proposal->company_id) {
+                $data['company_id'] = $proposal->company_id;
+            }
+        }
+
+        // If proposal is removed, auto-set to non-billable
+        if (empty($data['proposal_id'])) {
+            $data['proposal_id'] = null;
+            if (empty($data['company_id'])) {
+                $k5 = Company::where('name', 'K5 Company')->first();
+                if ($k5) {
+                    $data['company_id'] = $k5->id;
+                }
+            }
+        }
 
         $project->update($data);
 
@@ -197,8 +257,12 @@ class ProjectController extends Controller
     public function storeDeliverable(Request $request, Project $project)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['nullable', 'string'],
+            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
+            'rate'            => ['nullable', 'numeric', 'min:0'],
+            'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
+            'due_date'        => ['nullable', 'date'],
         ]);
 
         $data['sort_order'] = $project->deliverables()->max('sort_order') + 1;
@@ -211,8 +275,12 @@ class ProjectController extends Controller
     public function storeMilestone(Request $request, Project $project, Deliverable $deliverable)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['nullable', 'string'],
+            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
+            'rate'            => ['nullable', 'numeric', 'min:0'],
+            'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
+            'due_date'        => ['nullable', 'date'],
         ]);
 
         $data['sort_order'] = $deliverable->milestones()->max('sort_order') + 1;
@@ -225,11 +293,13 @@ class ProjectController extends Controller
     public function storeTask(Request $request, Milestone $milestone)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'start_date'  => ['nullable', 'date'],
-            'end_date'    => ['nullable', 'date'],
-            'status'      => ['nullable', 'string', 'in:pending,in_progress,complete'],
+            'name'         => ['required', 'string', 'max:255'],
+            'description'  => ['nullable', 'string'],
+            'start_date'   => ['nullable', 'date'],
+            'end_date'     => ['nullable', 'date'],
+            'status'       => ['nullable', 'string', 'in:pending,in_progress,complete'],
+            'budget_hours' => ['nullable', 'numeric', 'min:0'],
+            'rate'         => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $data['sort_order'] = $milestone->tasks()->max('sort_order') + 1;
@@ -243,8 +313,13 @@ class ProjectController extends Controller
     public function updateDeliverable(Request $request, Project $project, Deliverable $deliverable)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['nullable', 'string'],
+            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
+            'rate'            => ['nullable', 'numeric', 'min:0'],
+            'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
+            'billing_status'  => ['nullable', 'in:pending,ready_to_bill,invoiced,paid'],
+            'due_date'        => ['nullable', 'date'],
         ]);
 
         $deliverable->update($data);
@@ -267,8 +342,13 @@ class ProjectController extends Controller
     public function updateMilestone(Request $request, Milestone $milestone)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['nullable', 'string'],
+            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
+            'rate'            => ['nullable', 'numeric', 'min:0'],
+            'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
+            'billing_status'  => ['nullable', 'in:pending,ready_to_bill,invoiced,paid'],
+            'due_date'        => ['nullable', 'date'],
         ]);
 
         $milestone->update($data);
@@ -287,11 +367,13 @@ class ProjectController extends Controller
     public function updateTask(Request $request, Task $task)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'start_date'  => ['nullable', 'date'],
-            'end_date'    => ['nullable', 'date'],
-            'status'      => ['required', 'string', 'in:pending,in_progress,complete,cancelled'],
+            'name'         => ['required', 'string', 'max:255'],
+            'description'  => ['nullable', 'string'],
+            'start_date'   => ['nullable', 'date'],
+            'end_date'     => ['nullable', 'date'],
+            'status'       => ['required', 'string', 'in:pending,in_progress,complete,cancelled'],
+            'budget_hours' => ['nullable', 'numeric', 'min:0'],
+            'rate'         => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $task->update($data);

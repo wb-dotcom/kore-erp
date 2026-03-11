@@ -62,10 +62,17 @@
                         <input type="text" name="phone" class="form-control form-control-sm"
                             value="{{ old('phone') }}">
                     </div>
-                    <div class="col-12">
+                    <div class="col-sm-8">
                         <label class="form-label">Website</label>
                         <input type="url" name="website" class="form-control form-control-sm"
                             value="{{ old('website') }}" placeholder="https://...">
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label">Vendor Code</label>
+                        <input type="text" name="vendor_code" class="form-control form-control-sm"
+                            value="{{ old('vendor_code') }}"
+                            placeholder="e.g. BPHGA" maxlength="50">
+                        <div class="form-text" style="font-size:0.68rem;">Auto-populates in proposals.</div>
                     </div>
                 </div>
             </div>

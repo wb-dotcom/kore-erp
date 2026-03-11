@@ -15,21 +15,18 @@
 </div>
 @endif
 
-<form action="{{ route('projects.store') }}" method="POST">
+<form action="{{ route('projects.store') }}" method="POST" id="projectCreateForm">
     @csrf
     <div class="row g-4">
-
-        {{-- Left column --}}
         <div class="col-lg-8">
             <div class="kore-card mb-4">
                 <div class="fw-600 mb-3" style="font-size:0.8rem; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">
                     Project Details
                 </div>
-
                 <div class="row g-3">
                     <div class="col-sm-2">
                         <label class="form-label">Year <span class="text-danger">*</span></label>
-                        <input type="number" name="year" class="form-control form-control-sm"
+                        <input type="number" name="year" id="proj_year" class="form-control form-control-sm"
                             value="{{ old('year', $year) }}" required>
                     </div>
                     <div class="col-sm-2">
@@ -42,35 +39,58 @@
                         <input type="text" name="title" class="form-control form-control-sm"
                             value="{{ old('title') }}" placeholder="Project name" required>
                     </div>
+
+                    {{-- Proposal Linking --}}
+                    <div class="col-12">
+                        <label class="form-label">Linked Proposal <span class="text-muted" style="font-weight:400;">(optional — links to billing)</span></label>
+                        <select name="proposal_id" id="proposalSelect" class="form-select form-select-sm" onchange="onProposalChange()">
+                            <option value="">— No proposal (non-billable internal project) —</option>
+                            @foreach($proposals as $p)
+                            <option value="{{ $p->id }}"
+                                data-company="{{ $p->company_id }}"
+                                data-year="{{ $p->year }}"
+                                data-billing="{{ $p->billing_type }}"
+                                {{ (old('proposal_id', request('proposal_id')) == $p->id) ? 'selected' : '' }}>
+                                {{ $p->ref }} — {{ $p->title }}
+                                @if($p->company) ({{ $p->company->name }}) @endif
+                            </option>
+                            @endforeach
+                        </select>
+                        <div class="form-text" style="font-size:0.68rem; color:#6b7280;">
+                            <i class="bi bi-info-circle me-1"></i>Only approved proposals without a project are listed.
+                        </div>
+                    </div>
+
+                    {{-- Billing Notice --}}
+                    <div class="col-12" id="billingNotice">
+                        <div class="kore-alert kore-alert-info" style="font-size:0.8rem;" id="nonBillableNotice">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Non-Billable Project</strong> — No proposal linked. Client will default to
+                            <strong>{{ $k5Company?->name ?? 'K5 Company' }}</strong> and project type to Non-Billable.
+                        </div>
+                        <div class="kore-alert" style="background:#f0fdf4; border:1px solid #bbf7d0; font-size:0.8rem; display:none;" id="billableNotice">
+                            <i class="bi bi-check-circle me-1 text-success"></i>
+                            <strong>Billable Project</strong> — Billing type and client will be inherited from the linked proposal.
+                        </div>
+                    </div>
+
                     <div class="col-sm-6">
                         <label class="form-label">Client</label>
-                        <select name="company_id" class="form-select form-select-sm">
+                        <select name="company_id" id="companySelect" class="form-select form-select-sm">
                             <option value="">— Select client —</option>
                             @foreach($companies as $c)
-                            <option value="{{ $c->id }}" {{ old('company_id') == $c->id ? 'selected' : '' }}>
+                            <option value="{{ $c->id }}"
+                                {{ old('company_id', $k5Company?->id) == $c->id ? 'selected' : '' }}>
                                 {{ $c->name }}
                             </option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-sm-6">
-                        <label class="form-label">Approved Proposal <span class="text-danger">*</span></label>
-                        <select name="proposal_id" class="form-select form-select-sm" required>
-                            <option value="">— Select Approved Proposal —</option>
-                            @foreach($proposals as $p)
-                            <option value="{{ $p->id }}" {{ (old('proposal_id', request('proposal_id')) == $p->id) ? 'selected' : '' }}>
-                                {{ $p->year }}-{{ $p->proposal_number }} — {{ $p->title }}
-                            </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text" style="font-size:0.68rem; color:#6b7280;">
-                            <i class="bi bi-info-circle me-1"></i>Only approved proposals without an existing project are listed.
-                        </div>
-                    </div>
-                    <div class="col-sm-4">
+
+                    <div class="col-sm-3">
                         <label class="form-label">Project Type</label>
-                        <select name="project_type_id" class="form-select form-select-sm">
-                            <option value="">— Select —</option>
+                        <select name="project_type_id" id="projectTypeSelect" class="form-select form-select-sm">
+                            <option value="">— Auto —</option>
                             @foreach($projectTypes as $t)
                             <option value="{{ $t->id }}" {{ old('project_type_id') == $t->id ? 'selected' : '' }}>
                                 {{ $t->name }}
@@ -78,7 +98,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-3">
                         <label class="form-label">Project Manager</label>
                         <select name="project_manager_id" class="form-select form-select-sm">
                             <option value="">— Select —</option>
@@ -89,6 +109,7 @@
                             @endforeach
                         </select>
                     </div>
+
                     <div class="col-sm-4">
                         <label class="form-label">Status <span class="text-danger">*</span></label>
                         <select name="status_id" class="form-select form-select-sm" required>
@@ -117,19 +138,24 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label">Notes</label>
-                        <textarea name="notes" class="form-control form-control-sm" rows="4"
+                        <textarea name="notes" class="form-control form-control-sm" rows="3"
                             placeholder="Internal notes...">{{ old('notes') }}</textarea>
                     </div>
                 </div>
             </div>
         </div>
 
-        {{-- Right column --}}
         <div class="col-lg-4">
             <div class="kore-card mb-4" style="font-size:0.8rem; color:#6b7280;">
-                <div class="fw-600 mb-2" style="color:#374151;">About Projects</div>
-                <p class="mb-2">Every project must be linked to an <strong>approved proposal</strong>. The proposal is the brain of the system — it defines rates, deliverables, and billing terms that drive timesheets and invoices.</p>
-                <p class="mb-0">After creating the project, use the <strong>Deliverables</strong> tab to set up the work breakdown structure.</p>
+                <div class="fw-600 mb-2" style="color:#374151;">How Billing Works</div>
+                <p class="mb-2">
+                    <strong>With a proposal:</strong> Project inherits billing type, client, and year from the linked proposal. All time becomes billable.
+                </p>
+                <p class="mb-0">
+                    <strong>Without a proposal:</strong> Project is automatically non-billable. Client defaults to K5 Company for internal tracking.
+                </p>
+                <hr class="my-2">
+                <p class="mb-0">After creating, go to the project's <strong>WBS tab</strong> to add deliverables, milestones, and tasks with budget hours and rates.</p>
             </div>
         </div>
     </div>
@@ -141,5 +167,52 @@
         <a href="{{ route('projects.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
     </div>
 </form>
+
+@push('scripts')
+<script>
+const K5_COMPANY_ID = {{ $k5Company?->id ?? 'null' }};
+
+function onProposalChange() {
+    const sel   = document.getElementById('proposalSelect');
+    const opt   = sel.options[sel.selectedIndex];
+    const pid   = sel.value;
+
+    const nonBillableNotice = document.getElementById('nonBillableNotice');
+    const billableNotice    = document.getElementById('billableNotice');
+    const companySelect     = document.getElementById('companySelect');
+    const yearInput         = document.getElementById('proj_year');
+
+    if (pid) {
+        // Proposal selected → billable
+        nonBillableNotice.style.display = 'none';
+        billableNotice.style.display    = '';
+
+        // Auto-fill company from proposal
+        const companyId = opt.dataset.company;
+        if (companyId && companySelect) {
+            companySelect.value = companyId;
+        }
+
+        // Auto-fill year from proposal
+        const yr = opt.dataset.year;
+        if (yr && yearInput) yearInput.value = yr;
+    } else {
+        // No proposal → non-billable
+        nonBillableNotice.style.display = '';
+        billableNotice.style.display    = 'none';
+
+        // Default to K5 Company
+        if (K5_COMPANY_ID && companySelect) {
+            companySelect.value = K5_COMPANY_ID;
+        }
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    onProposalChange();
+});
+</script>
+@endpush
 
 @endsection

@@ -51,15 +51,24 @@
                 </select>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">Linked Proposal</label>
+                <label class="form-label">Linked Proposal <span class="text-muted" style="font-weight:400;">(optional)</span></label>
                 <select name="proposal_id" class="form-select form-select-sm">
-                    <option value="">— None —</option>
+                    <option value="">— None (non-billable) —</option>
                     @foreach($proposals as $p)
                     <option value="{{ $p->id }}" {{ old('proposal_id', $project->proposal_id) == $p->id ? 'selected' : '' }}>
-                        {{ $p->year }}-{{ $p->proposal_number }} — {{ $p->title }}
+                        {{ $p->ref }} — {{ $p->title }}
                     </option>
                     @endforeach
                 </select>
+                @if(!$project->proposal_id)
+                <div class="form-text" style="font-size:0.68rem; color:#f59e0b;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>No proposal linked — this is a non-billable project.
+                </div>
+                @else
+                <div class="form-text" style="font-size:0.68rem; color:#10b981;">
+                    <i class="bi bi-check-circle me-1"></i>Linked to {{ $project->proposal?->ref }} — billable project.
+                </div>
+                @endif
             </div>
             <div class="col-sm-4">
                 <label class="form-label">Project Type</label>

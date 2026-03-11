@@ -18,11 +18,15 @@ class Task extends Model
         'end_date',
         'status',
         'sort_order',
+        'budget_hours',
+        'rate',
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date'   => 'date',
+        'start_date'   => 'date',
+        'end_date'     => 'date',
+        'budget_hours' => 'float',
+        'rate'         => 'float',
     ];
 
     public function milestone(): BelongsTo

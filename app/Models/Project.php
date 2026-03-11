@@ -81,4 +81,18 @@ class Project extends Model
     {
         return $this->hasMany(TimesheetEntry::class, 'project_id');
     }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /** A project is billable when it has an approved linked proposal. */
+    public function isBillable(): bool
+    {
+        return $this->proposal_id !== null;
+    }
+
+    /** Convenience: billing type inherited from the linked proposal. */
+    public function getBillingTypeAttribute(): ?string
+    {
+        return $this->proposal?->billing_type;
+    }
 }

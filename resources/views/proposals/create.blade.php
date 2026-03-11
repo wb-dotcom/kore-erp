@@ -112,14 +112,21 @@
             {{-- Company + Contact — top priority --}}
             <div class="col-sm-6">
                 <label class="form-label">Client Company</label>
-                <select name="company_id" id="companySelect" class="form-select form-select-sm">
-                    <option value="">— Select Company —</option>
-                    @foreach($companies as $c)
-                    <option value="{{ $c->id }}" {{ old('company_id') == $c->id ? 'selected' : '' }}>
-                        {{ $c->name }}
-                    </option>
-                    @endforeach
-                </select>
+                <div class="d-flex gap-2 align-items-end">
+                    <select name="company_id" id="companySelect" class="form-select form-select-sm flex-grow-1" onchange="onCompanyChange()">
+                        <option value="">— Select Company —</option>
+                        @foreach($companies as $c)
+                        <option value="{{ $c->id }}"
+                            data-vendor-code="{{ $c->vendor_code }}"
+                            {{ old('company_id') == $c->id ? 'selected' : '' }}>
+                            {{ $c->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                    <a href="{{ route('companies.create') }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Add new company">
+                        <i class="bi bi-plus-lg"></i>
+                    </a>
+                </div>
             </div>
             <div class="col-sm-6">
                 <label class="form-label">Primary Contact</label>
@@ -146,15 +153,16 @@
                 </select>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">Project Type</label>
+                <label class="form-label">Internal Project Type</label>
                 <select name="project_type_id" class="form-select form-select-sm">
-                    <option value="">— Select Type —</option>
-                    @foreach($projectTypes as $pt)
+                    <option value="">— All proposals are billable by default —</option>
+                    @foreach($projectTypes->filter(fn($pt) => !in_array(strtolower($pt->name), ['billable', 'non-billable'])) as $pt)
                     <option value="{{ $pt->id }}" {{ old('project_type_id') == $pt->id ? 'selected' : '' }}>
                         {{ $pt->name }}
                     </option>
                     @endforeach
                 </select>
+                <div class="form-text" style="font-size:0.68rem;">Select only for internal classifications (e.g. R&D, Government).</div>
             </div>
 
             <div class="col-sm-4">
@@ -636,7 +644,21 @@ document.getElementById('billingType').addEventListener('change', function () {
     if (billingType) applyBillingTypeIntelligence(billingType);
     const status = document.getElementById('statusSelect');
     if (status.value) status.dispatchEvent(new Event('change'));
+    onCompanyChange(); // init vendor code from any old() selection
 })();
+
+// ── Company → Vendor Code Auto-Fill ──────────────────────────────────────────
+function onCompanyChange() {
+    const sel = document.getElementById('companySelect');
+    const opt = sel.options[sel.selectedIndex];
+    const vendorInput = document.querySelector('input[name="vendor_code"]');
+    if (!vendorInput) return;
+
+    // Only auto-fill if vendor_code input is currently empty
+    if (opt && opt.dataset.vendorCode && !vendorInput.value.trim()) {
+        vendorInput.value = opt.dataset.vendorCode;
+    }
+}
 </script>
 @endpush
 

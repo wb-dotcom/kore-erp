@@ -107,10 +107,12 @@
         <div class="row g-3">
             <div class="col-sm-6">
                 <label class="form-label">Client Company</label>
-                <select name="company_id" id="companySelect" class="form-select form-select-sm">
+                <select name="company_id" id="companySelect" class="form-select form-select-sm" onchange="onCompanyChange()">
                     <option value="">— Select Company —</option>
                     @foreach($companies as $c)
-                    <option value="{{ $c->id }}" {{ old('company_id', $proposal->company_id) == $c->id ? 'selected' : '' }}>
+                    <option value="{{ $c->id }}"
+                        data-vendor-code="{{ $c->vendor_code }}"
+                        {{ old('company_id', $proposal->company_id) == $c->id ? 'selected' : '' }}>
                         {{ $c->name }}
                     </option>
                     @endforeach
@@ -144,7 +146,7 @@
                 <label class="form-label">Project Type</label>
                 <select name="project_type_id" class="form-select form-select-sm">
                     <option value="">— Select Type —</option>
-                    @foreach($projectTypes as $pt)
+                    @foreach($projectTypes->filter(fn($pt) => !in_array(strtolower($pt->name), ['billable', 'non-billable'])) as $pt)
                     <option value="{{ $pt->id }}" {{ old('project_type_id', $proposal->project_type_id) == $pt->id ? 'selected' : '' }}>
                         {{ $pt->name }}
                     </option>
@@ -575,6 +577,17 @@ document.getElementById('billingType').addEventListener('change', function () {
     const status = document.getElementById('statusSelect');
     if (status.value) status.dispatchEvent(new Event('change'));
 })();
+
+// ── Company → Vendor Code Auto-Fill ──────────────────────────────────────────
+function onCompanyChange() {
+    const sel = document.getElementById('companySelect');
+    const opt = sel.options[sel.selectedIndex];
+    const vendorInput = document.querySelector('input[name="vendor_code"]');
+    if (!vendorInput) return;
+    if (opt && opt.dataset.vendorCode && !vendorInput.value.trim()) {
+        vendorInput.value = opt.dataset.vendorCode;
+    }
+}
 </script>
 @endpush
 
