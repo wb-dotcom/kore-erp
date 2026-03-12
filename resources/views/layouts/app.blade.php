@@ -72,15 +72,22 @@
         .hamburger-btn i { font-size: 20px; }
 
         /* ── Header logo ─────────────────────────────────────── */
-        .hdr-logo-link {
-            display: flex; align-items: center;
-            flex-shrink: 0;
+        .hdr-logo-wrap {
+            display: flex; align-items: center; flex-shrink: 0;
+            position: relative; width: 36px; height: 36px;
         }
         .hdr-logo-img {
             width: 36px; height: 36px;
             border-radius: 50%;
             object-fit: cover; flex-shrink: 0;
             display: block;
+        }
+        .hdr-logo-fallback {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, #f5a623 0%, #7b52e8 55%, #2563eb 100%);
+            display: none; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 800; color: #fff;
+            letter-spacing: -0.5px; flex-shrink: 0;
         }
 
         /* ── Divider ─────────────────────────────────────────── */
@@ -89,26 +96,22 @@
             background: var(--c-border); flex-shrink: 0;
         }
 
-        /* ── Page title / dashboard link ─────────────────────── */
-        .hdr-title {
-            font-size: 15px; font-weight: 600;
-            color: var(--c-t1); flex: 1; letter-spacing: -0.2px;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .hdr-title-link {
-            display: inline-flex; align-items: center; gap: 6px;
-            text-decoration: none;
-            color: var(--c-t1); font-weight: 600;
-            padding: 4px 8px; border-radius: var(--r-sm);
+        /* ── Dashboard home link ─────────────────────────────── */
+        .hdr-home-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            text-decoration: none; flex: 1;
+            color: var(--c-t1); font-size: 15px; font-weight: 600;
+            padding: 5px 10px; border-radius: var(--r-sm);
             transition: background 0.12s, color 0.12s;
+            letter-spacing: -0.2px;
         }
-        .hdr-title-link:hover { background: #f2f4f8; color: var(--c-accent); }
-        .hdr-title-link i { font-size: 16px; }
-        .hdr-title-sep {
-            color: var(--c-t4); font-weight: 400; font-size: 14px;
-        }
-        .hdr-title-page {
-            color: var(--c-t2); font-weight: 600; font-size: 15px;
+        .hdr-home-link i { font-size: 17px; color: var(--c-accent); }
+        .hdr-home-link:hover { background: #f2f4f8; color: var(--c-accent); }
+
+        /* ── Header shortcuts bar ────────────────────────────── */
+        /* Future: user-configurable quick-access buttons        */
+        .hdr-shortcuts {
+            display: flex; align-items: center; gap: 4px; flex-shrink: 0;
         }
 
         .hdr-search { position: relative; }
@@ -546,49 +549,49 @@
 <div id="main-wrapper">
 
     <header id="top-header">
-        <button class="hamburger-btn" onclick="openNavDrawer()" title="Navigation">
-            <i class="bi bi-list"></i>
-        </button>
 
         {{-- K5 Logo --}}
-        <span class="hdr-logo-link">
-            <img src="{{ asset('images/logo.png') }}" alt="Kore ERP" class="hdr-logo-img">
+        <span class="hdr-logo-wrap">
+            <img src="{{ asset('images/logo.png') }}" alt="Kore ERP" class="hdr-logo-img"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <span class="hdr-logo-fallback">K5</span>
         </span>
 
         <div class="hdr-divider"></div>
 
-        {{-- Page title — dashboard icon links home; on non-dashboard pages show breadcrumb --}}
-        <span class="hdr-title">
-            @if(request()->routeIs('dashboard'))
-                <i class="bi bi-grid-1x2-fill" style="color:var(--c-accent);font-size:16px;"></i>
-                Dashboard
-            @else
-                <a href="{{ route('dashboard') }}" class="hdr-title-link" title="Back to Dashboard">
-                    <i class="bi bi-house-fill"></i>
-                    <span class="d-none d-sm-inline">Dashboard</span>
-                </a>
-                <span class="hdr-title-sep">/</span>
-                <span class="hdr-title-page">{{ $title ?? 'Dashboard' }}</span>
-            @endif
-        </span>
-
-        <div class="hdr-search d-none d-md-block">
-            <i class="bi bi-search"></i>
-            <input type="text" placeholder="Search…" id="globalSearch">
-        </div>
-
-        <button class="hdr-icon-btn d-md-none" title="Search">
-            <i class="bi bi-search"></i>
+        {{-- Hamburger --}}
+        <button class="hamburger-btn" onclick="openNavDrawer()" title="Navigation">
+            <i class="bi bi-list"></i>
         </button>
 
-        {{-- Kore AI quick-access button --}}
-        <a href="{{ route('ai.index') }}" class="hdr-ai-btn d-none d-sm-flex {{ request()->routeIs('ai*') ? 'opacity-75' : '' }}">
-            <i class="bi bi-robot"></i> Kore AI
+        {{-- Dashboard home link (always visible) --}}
+        <a href="{{ route('dashboard') }}" class="hdr-home-link" title="Dashboard">
+            <i class="bi bi-house-fill"></i>
+            <span class="d-none d-sm-inline">Dashboard</span>
         </a>
 
-        <button class="hdr-icon-btn" title="Notifications">
-            <i class="bi bi-bell"></i>
-        </button>
+        {{-- ── Quick shortcuts bar (user-configurable in future) ── --}}
+        <div class="hdr-shortcuts">
+
+            <div class="hdr-search d-none d-md-block">
+                <i class="bi bi-search"></i>
+                <input type="text" placeholder="Search…" id="globalSearch">
+            </div>
+
+            <button class="hdr-icon-btn d-md-none" title="Search">
+                <i class="bi bi-search"></i>
+            </button>
+
+            {{-- Shortcut: Kore AI --}}
+            <a href="{{ route('ai.index') }}" class="hdr-ai-btn d-none d-sm-flex {{ request()->routeIs('ai*') ? 'opacity-75' : '' }}">
+                <i class="bi bi-robot"></i> Kore AI
+            </a>
+
+            <button class="hdr-icon-btn" title="Notifications">
+                <i class="bi bi-bell"></i>
+            </button>
+
+        </div>
 
         <div class="dropdown">
             <button class="hdr-avatar" data-bs-toggle="dropdown" title="{{ auth()->user()->first_name }}">
