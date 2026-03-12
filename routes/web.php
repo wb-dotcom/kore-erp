@@ -80,6 +80,7 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::post('/proposals/{proposal}/billing-schedule/periods',                     [BillingScheduleController::class, 'storePeriod'])->name('proposals.billing-schedule.periods.store');
     Route::put('/proposals/{proposal}/billing-schedule/periods/{period}',             [BillingScheduleController::class, 'updatePeriod'])->name('proposals.billing-schedule.periods.update');
     Route::delete('/proposals/{proposal}/billing-schedule/periods/{period}',          [BillingScheduleController::class, 'destroyPeriod'])->name('proposals.billing-schedule.periods.destroy');
+    Route::post('/proposals/{proposal}/billing-schedule/periods/{period}/generate-invoice', [BillingScheduleController::class, 'generateInvoice'])->name('proposals.billing-schedule.periods.generate-invoice');
 
     // Proposal Deliverables / Activities / Tasks (work breakdown template)
     Route::get('/proposals/{proposal}/deliverables',                                          [ProposalDeliverableController::class, 'index'])->name('proposals.deliverables.index');
@@ -172,11 +173,15 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::get('/project-schedule/resources',   [ScheduleController::class, 'resourcesDashboard'])->name('schedule.resources');
     Route::get('/project-schedule/data',        [ScheduleController::class, 'ganttData'])->name('schedule.gantt-data');
 
-    // Invoicing
+    // Invoicing — AR/AP control center
+    Route::get('/invoices/dashboard',            [InvoiceController::class, 'dashboard'])->name('invoices.dashboard');
     Route::resource('invoices', InvoiceController::class);
     Route::get('/invoices/{invoice}/pdf',        [InvoiceController::class, 'generatePdf'])->name('invoices.pdf');
+    Route::get('/invoices/{invoice}/preview',    [InvoiceController::class, 'previewPdf'])->name('invoices.preview');
     Route::post('/invoices/{invoice}/send',      [InvoiceController::class, 'sendEmail'])->name('invoices.send');
     Route::post('/invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
+    Route::post('/invoices/{invoice}/void',      [InvoiceController::class, 'voidInvoice'])->name('invoices.void');
+    Route::post('/invoices/{invoice}/payment',   [InvoiceController::class, 'applyPayment'])->name('invoices.payment');
 
     // Admin routes (Admin only)
     Route::middleware('role:Admin')->prefix('admin')->name('admin.')->group(function () {

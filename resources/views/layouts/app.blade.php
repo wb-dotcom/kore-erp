@@ -518,7 +518,7 @@
             <a href="{{ route('events.index') }}" class="drawer-link {{ request()->routeIs('events*') ? 'active' : '' }}" onclick="closeNavDrawer()">
                 <span class="drawer-link-icon"><i class="bi bi-calendar-event"></i></span> Calendar
             </a>
-            <a href="{{ route('invoices.index') }}" class="drawer-link {{ request()->routeIs('invoices*') ? 'active' : '' }}" onclick="closeNavDrawer()">
+            <a href="{{ route('invoices.dashboard') }}" class="drawer-link {{ request()->routeIs('invoices*') ? 'active' : '' }}" onclick="closeNavDrawer()">
                 <span class="drawer-link-icon"><i class="bi bi-receipt"></i></span> Invoicing
             </a>
             <a href="{{ route('ai.index') }}" class="drawer-link {{ request()->routeIs('ai*') ? 'active' : '' }}" onclick="closeNavDrawer()">

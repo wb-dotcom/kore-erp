@@ -14,6 +14,11 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'deliverable_id',
+        'user_id',
+        'role_name',
+        'hours',
+        'rate',
+        'timesheet_entry_ids',
         'description',
         'quantity',
         'unit_price',
@@ -22,9 +27,12 @@ class InvoiceItem extends Model
     ];
 
     protected $casts = [
-        'quantity'   => 'decimal:2',
-        'unit_price' => 'decimal:2',
-        'line_total' => 'decimal:2',
+        'quantity'            => 'decimal:2',
+        'unit_price'          => 'decimal:2',
+        'line_total'          => 'decimal:2',
+        'hours'               => 'decimal:2',
+        'rate'                => 'decimal:2',
+        'timesheet_entry_ids' => 'array',
     ];
 
     public function invoice(): BelongsTo
@@ -35,5 +43,10 @@ class InvoiceItem extends Model
     public function deliverable(): BelongsTo
     {
         return $this->belongsTo(Deliverable::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

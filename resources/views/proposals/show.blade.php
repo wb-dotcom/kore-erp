@@ -798,7 +798,7 @@
                 <div class="billing-period-row header">
                     <div>Period Start</div><div>Period End</div>
                     <div>Fees</div><div>Expenses</div><div>Total</div>
-                    <div>Status</div><div>Invoice #</div><div></div>
+                    <div>Status</div><div>Invoice #</div><div>Actions</div>
                 </div>
                 @foreach($bs->periods->sortBy('sort_order') as $period)
                 <div class="billing-period-row">
@@ -813,7 +813,18 @@
                         </span>
                     </div>
                     <div style="font-size:0.75rem; color:#6b7280;">{{ $period->invoice_number ?? '—' }}</div>
-                    <div>
+                    <div class="d-flex align-items-center gap-1">
+                        @if(!$period->invoice_id)
+                        <button class="btn btn-xs btn-outline-primary" style="font-size:0.68rem; padding:2px 7px;"
+                            onclick="generateInvoiceFromPeriod({{ $period->id }}, this)" title="Generate Invoice">
+                            <i class="bi bi-receipt me-1"></i>Invoice
+                        </button>
+                        @else
+                        <a href="{{ route('invoices.show', $period->invoice_id) }}"
+                           class="btn btn-xs btn-outline-success" style="font-size:0.68rem; padding:2px 7px;" title="View Invoice">
+                            <i class="bi bi-eye me-1"></i>{{ $period->invoice_number }}
+                        </a>
+                        @endif
                         @if(!$period->is_locked)
                         <button class="btn btn-link btn-sm p-0 text-danger"
                             onclick="deletePeriod({{ $period->id }})" title="Delete">
@@ -1282,6 +1293,12 @@ function renderBillingPeriods(periods) {
     periods.forEach(p => {
         const color = statusColors[p.status] || 'secondary';
         const locked = p.is_locked ? '🔒 ' : '';
+        let actionBtn = '';
+        if (p.invoice_id && p.invoice_url) {
+            actionBtn = `<a href="${p.invoice_url}" class="btn btn-outline-success" style="font-size:0.68rem; padding:2px 7px;"><i class="bi bi-eye me-1"></i>${esc(p.invoice_number)}</a>`;
+        } else {
+            actionBtn = `<button class="btn btn-outline-primary" style="font-size:0.68rem; padding:2px 7px;" onclick="generateInvoiceFromPeriod(${p.id}, this)"><i class="bi bi-receipt me-1"></i>Invoice</button>`;
+        }
         html += `<div class="billing-period-row">
             <div>${p.period_start}</div>
             <div>${p.period_end}</div>
@@ -1290,12 +1307,47 @@ function renderBillingPeriods(periods) {
             <div><strong>$${fmtMoney(p.total_amount)}</strong></div>
             <div><span class="badge bg-${color}">${locked}${p.status}</span></div>
             <div style="font-size:0.75rem; color:#6b7280;">${p.invoice_number ?? '—'}</div>
-            <div>
+            <div class="d-flex align-items-center gap-1">
+                ${actionBtn}
                 ${!p.is_locked ? `<button class="btn btn-link btn-sm p-0 text-danger" onclick="deletePeriod(${p.id})"><i class="bi bi-trash" style="font-size:0.75rem;"></i></button>` : ''}
             </div>
         </div>`;
     });
     container.innerHTML = html;
+}
+
+async function generateInvoiceFromPeriod(periodId, btn) {
+    if (!confirm('Generate an invoice for this billing period?')) return;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    try {
+        const res  = await fetch(BASE_URL + '/billing-schedule/periods/' + periodId + '/generate-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            // Replace button with link to invoice
+            btn.outerHTML = `<a href="${data.invoice_url}" class="btn btn-outline-success" style="font-size:0.68rem; padding:2px 7px;">
+                <i class="bi bi-eye me-1"></i>${data.invoice_number}</a>`;
+            // Reload to show updated status
+            setTimeout(() => location.reload(), 800);
+        } else {
+            if (data.invoice_url) {
+                window.location.href = data.invoice_url;
+            } else {
+                alert(data.message || 'Failed to generate invoice.');
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
+        }
+    } catch (e) {
+        alert('Network error generating invoice.');
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
 }
 
 async function deletePeriod(id) {

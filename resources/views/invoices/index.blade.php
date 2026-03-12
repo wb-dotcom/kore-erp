@@ -7,9 +7,14 @@
         <h4 class="mb-0 fw-700" style="font-size:1rem;">Invoices</h4>
         <div style="font-size:0.75rem; color:#6b7280;">{{ $invoices->total() }} total</div>
     </div>
-    <a href="{{ route('invoices.create') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i> New Invoice
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('invoices.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-speedometer2 me-1"></i> AR Dashboard
+        </a>
+        <a href="{{ route('invoices.create') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> New Invoice
+        </a>
+    </div>
 </div>
 
 @if(session('success'))
@@ -27,7 +32,7 @@
     <div class="col-sm-3">
         <div class="kore-card text-center py-3">
             <div style="font-size:1.1rem; font-weight:700; color:#4c8bf5;">${{ number_format($totals['sent'], 0) }}</div>
-            <div style="font-size:0.72rem; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em;">Sent / Outstanding</div>
+            <div style="font-size:0.72rem; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em;">Outstanding Balance</div>
         </div>
     </div>
     <div class="col-sm-3">
@@ -58,8 +63,20 @@
                 <option value="">All</option>
                 <option value="draft"   {{ request('status') === 'draft'   ? 'selected':'' }}>Draft</option>
                 <option value="sent"    {{ request('status') === 'sent'    ? 'selected':'' }}>Sent</option>
+                <option value="partial" {{ request('status') === 'partial' ? 'selected':'' }}>Partial</option>
                 <option value="overdue" {{ request('status') === 'overdue' ? 'selected':'' }}>Overdue</option>
                 <option value="paid"    {{ request('status') === 'paid'    ? 'selected':'' }}>Paid</option>
+                <option value="void"    {{ request('status') === 'void'    ? 'selected':'' }}>Void</option>
+            </select>
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label" style="font-size:0.75rem; font-weight:600;">Type</label>
+            <select name="type" class="form-select form-select-sm">
+                <option value="">All Types</option>
+                <option value="manual"     {{ request('type') === 'manual'     ? 'selected':'' }}>Manual</option>
+                <option value="fixed_auto" {{ request('type') === 'fixed_auto' ? 'selected':'' }}>Fixed Fee</option>
+                <option value="tm_auto"    {{ request('type') === 'tm_auto'    ? 'selected':'' }}>T&amp;M</option>
+                <option value="retainer"   {{ request('type') === 'retainer'   ? 'selected':'' }}>Retainer</option>
             </select>
         </div>
         <div class="col-sm-auto">
@@ -105,8 +122,10 @@
                 <td>
                     @php $cls = match($inv->status) {
                         'sent'    => 'active',
+                        'partial' => 'warning',
                         'paid'    => 'approved',
                         'overdue' => 'rejected',
+                        'void'    => 'secondary',
                         default   => 'draft',
                     }; @endphp
                     <span class="badge badge-{{ $cls }}">{{ ucfirst($inv->status) }}</span>
