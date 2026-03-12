@@ -109,73 +109,99 @@ class BillingScheduleController extends Controller
      */
     public function generateInvoice(Request $request, Proposal $proposal, BillingSchedulePeriod $period): JsonResponse
     {
-        if ($period->is_locked && $period->invoice_id) {
+        try {
+            if ($period->is_locked && $period->invoice_id) {
+                return response()->json([
+                    'message'     => 'Invoice already exists for this period.',
+                    'invoice_url' => route('invoices.show', $period->invoice_id),
+                ], 422);
+            }
+
+            $schedule    = $period->billingSchedule;
+            $billingType = $proposal->billing_type ?? $schedule->billing_type ?? 'fixed';
+
+            $invoiceNumber = Invoice::nextNumber();
+            $invoiceDate   = now()->toDateString();
+            $dueDate       = now()->addDays($schedule->payment_terms_days ?? 30)->toDateString();
+
+            $invoiceType = match ($billingType) {
+                'time_and_material' => 'tm_auto',
+                'retainer'          => 'retainer',
+                default             => 'fixed_auto',
+            };
+
+            // Build only the columns that are guaranteed to exist
+            $invoiceData = [
+                'invoice_number' => $invoiceNumber,
+                'project_id'     => $proposal->project?->id,
+                'company_id'     => $proposal->company_id,
+                'invoice_date'   => $invoiceDate,
+                'due_date'       => $dueDate,
+                'tax_rate'       => 0,
+                'status'         => 'draft',
+                'notes'          => 'Billing period: '
+                                  . Carbon::parse($period->period_start)->format('M d, Y')
+                                  . ' – '
+                                  . Carbon::parse($period->period_end)->format('M d, Y'),
+                'created_by'     => auth()->id(),
+            ];
+
+            // Add new columns only if they exist in the schema
+            $invoiceColumns = \Schema::getColumnListing('invoices');
+            if (in_array('proposal_id', $invoiceColumns)) {
+                $invoiceData['proposal_id'] = $proposal->id;
+            }
+            if (in_array('billing_schedule_period_id', $invoiceColumns)) {
+                $invoiceData['billing_schedule_period_id'] = $period->id;
+            }
+            if (in_array('invoice_type', $invoiceColumns)) {
+                $invoiceData['invoice_type'] = $invoiceType;
+            }
+
+            $invoice = Invoice::create($invoiceData);
+
+            if ($billingType === 'time_and_material') {
+                $this->buildTimesheetLineItems($invoice, $proposal, $period);
+            } else {
+                $this->buildFixedLineItems($invoice, $proposal, $period, $billingType);
+            }
+
+            $invoice->recalculate();
+
+            $period->update([
+                'status'         => 'invoiced',
+                'invoice_id'     => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'is_locked'      => true,
+            ]);
+
+            ActivityLog::record(
+                'Generated invoice from billing period',
+                'invoices',
+                $invoice->id,
+                $invoice->invoice_number
+            );
+
             return response()->json([
-                'message'     => 'Invoice already exists for this period.',
-                'invoice_url' => route('invoices.show', $period->invoice_id),
-            ], 422);
+                'success'        => true,
+                'invoice_id'     => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'invoice_url'    => route('invoices.show', $invoice),
+                'total'          => (float) $invoice->total,
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('generateInvoice failed: ' . $e->getMessage(), [
+                'proposal_id' => $proposal->id,
+                'period_id'   => $period->id,
+                'trace'       => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate invoice: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $schedule    = $period->billingSchedule;
-        $billingType = $proposal->billing_type ?? $schedule->billing_type ?? 'fixed';
-
-        $invoiceNumber = Invoice::nextNumber();
-        $invoiceDate   = now()->toDateString();
-        $dueDate       = now()->addDays($schedule->payment_terms_days ?? 30)->toDateString();
-
-        $invoiceType = match ($billingType) {
-            'time_and_material' => 'tm_auto',
-            'retainer'          => 'retainer',
-            default             => 'fixed_auto',
-        };
-
-        $invoice = Invoice::create([
-            'invoice_number'             => $invoiceNumber,
-            'proposal_id'                => $proposal->id,
-            'billing_schedule_period_id' => $period->id,
-            'project_id'                 => $proposal->project?->id,
-            'company_id'                 => $proposal->company_id,
-            'invoice_date'               => $invoiceDate,
-            'due_date'                   => $dueDate,
-            'tax_rate'                   => 0,
-            'status'                     => 'draft',
-            'invoice_type'               => $invoiceType,
-            'notes'                      => 'Billing period: '
-                                          . Carbon::parse($period->period_start)->format('M d, Y')
-                                          . ' – '
-                                          . Carbon::parse($period->period_end)->format('M d, Y'),
-            'created_by'                 => auth()->id(),
-        ]);
-
-        if ($billingType === 'time_and_material') {
-            $this->buildTimesheetLineItems($invoice, $proposal, $period);
-        } else {
-            $this->buildFixedLineItems($invoice, $proposal, $period, $billingType);
-        }
-
-        $invoice->recalculate();
-
-        $period->update([
-            'status'         => 'invoiced',
-            'invoice_id'     => $invoice->id,
-            'invoice_number' => $invoice->invoice_number,
-            'is_locked'      => true,
-        ]);
-
-        ActivityLog::record(
-            'Generated invoice from billing period',
-            'invoices',
-            $invoice->id,
-            $invoice->invoice_number
-        );
-
-        return response()->json([
-            'success'        => true,
-            'invoice_id'     => $invoice->id,
-            'invoice_number' => $invoice->invoice_number,
-            'invoice_url'    => route('invoices.show', $invoice),
-            'total'          => (float) $invoice->total,
-        ]);
     }
 
     /** PUT /proposals/{proposal}/billing-schedule/periods/{period} */

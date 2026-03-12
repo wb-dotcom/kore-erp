@@ -1327,7 +1327,13 @@ async function generateInvoiceFromPeriod(periodId, btn) {
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
             body: JSON.stringify({}),
         });
-        const data = await res.json();
+        let data;
+        try {
+            data = await res.json();
+        } catch (parseErr) {
+            const text = await res.text().catch(() => '');
+            throw new Error('HTTP ' + res.status + ' — server returned non-JSON response. Run: php artisan migrate');
+        }
         if (res.ok && data.success) {
             // Replace button with link to invoice
             btn.outerHTML = `<a href="${data.invoice_url}" class="btn btn-outline-success" style="font-size:0.68rem; padding:2px 7px;">
@@ -1344,7 +1350,9 @@ async function generateInvoiceFromPeriod(periodId, btn) {
             }
         }
     } catch (e) {
-        alert('Network error generating invoice.');
+        // Try to parse the response text for a real error message
+        console.error('Invoice generation error:', e);
+        alert('Server error: ' + (e.message || 'Could not generate invoice. Check that the database migration has been run.'));
         btn.disabled = false;
         btn.innerHTML = orig;
     }
