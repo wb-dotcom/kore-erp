@@ -107,6 +107,25 @@
         }
         .hdr-icon-btn:hover { background: #f2f4f8; color: var(--c-t1); }
 
+        /* ── Kore AI header button ───────────────────────────── */
+        .hdr-ai-btn {
+            display: flex; align-items: center; gap: 7px;
+            padding: 6px 14px 6px 10px;
+            background: linear-gradient(135deg, #6c63ff 0%, #4c8bf5 100%);
+            border: none; border-radius: 22px;
+            color: #fff; font-size: 13px; font-weight: 600;
+            cursor: pointer; white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(108,99,255,0.35);
+            transition: box-shadow 0.2s ease, transform 0.15s ease, opacity 0.15s;
+            text-decoration: none;
+        }
+        .hdr-ai-btn:hover {
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(108,99,255,0.45);
+            transform: translateY(-1px);
+        }
+        .hdr-ai-btn i { font-size: 15px; }
+
         .hdr-avatar {
             width: 32px; height: 32px; border-radius: 50%;
             background: var(--c-accent);
@@ -506,6 +525,11 @@
         <button class="hdr-icon-btn d-md-none" title="Search">
             <i class="bi bi-search"></i>
         </button>
+
+        {{-- Kore AI quick-access button --}}
+        <a href="{{ route('ai.index') }}" class="hdr-ai-btn d-none d-sm-flex {{ request()->routeIs('ai*') ? 'opacity-75' : '' }}">
+            <i class="bi bi-robot"></i> Kore AI
+        </a>
 
         <button class="hdr-icon-btn" title="Notifications">
             <i class="bi bi-bell"></i>
