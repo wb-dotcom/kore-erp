@@ -49,119 +49,16 @@
             overflow-x: hidden;
         }
 
-        /* ── Light sidebar ───────────────────────────────────── */
-        #sidebar {
-            position: fixed;
-            top: 0; left: 0;
-            width: var(--sidebar-w);
-            height: 100vh;
-            background: var(--c-surface);
-            border-right: 1px solid var(--c-border);
-            display: flex;
-            flex-direction: column;
-            z-index: 600;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-        }
-
-        .sidebar-brand {
-            height: var(--header-h);
-            padding: 0 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: 1px solid var(--c-border);
-            flex-shrink: 0;
-        }
-        .brand-icon {
-            width: 30px; height: 30px;
-            background: var(--c-accent);
-            border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 13px; font-weight: 800;
-            flex-shrink: 0;
-            letter-spacing: -0.5px;
-        }
-        .brand-name {
-            font-size: 15px; font-weight: 700;
-            color: var(--c-t1); letter-spacing: -0.3px;
-        }
-        .brand-name em { font-style: normal; color: var(--c-accent); }
-
-        .sidebar-user {
-            padding: 12px 16px;
-            display: flex; align-items: center; gap: 10px;
-            border-bottom: 1px solid var(--c-border);
-            flex-shrink: 0;
-        }
-        .su-avatar {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            background: var(--c-accent);
-            color: #fff; font-size: 12px; font-weight: 700;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-        }
-        .su-name { font-size: 13px; font-weight: 600; color: var(--c-t1); line-height: 1.2; }
-        .su-role { font-size: 11px; color: var(--c-t4); }
-
-        .sidebar-nav {
-            flex: 1; padding: 8px 0;
-            overflow-y: auto; overflow-x: hidden;
-        }
-        .sidebar-nav::-webkit-scrollbar { width: 2px; }
-        .sidebar-nav::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
-
-        .nav-section-label {
-            font-size: 10.5px; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 1px;
-            color: var(--c-t4); padding: 16px 20px 4px;
-        }
-
-        .sidebar-nav .s-link {
-            display: flex; align-items: center; gap: 10px;
-            padding: 8.5px 12px; margin: 1px 8px;
-            border-radius: var(--r-sm);
-            color: var(--c-t3);
-            text-decoration: none;
-            font-size: 13.5px; font-weight: 500;
-            transition: background 0.12s ease, color 0.12s ease;
-        }
-        .sidebar-nav .s-link i {
-            font-size: 15px; width: 18px; text-align: center; flex-shrink: 0;
-        }
-        .sidebar-nav .s-link:hover { background: #f2f4f8; color: var(--c-t1); }
-        .sidebar-nav .s-link.active {
-            background: var(--c-accent-light);
-            color: var(--c-accent);
-            font-weight: 600;
-        }
-
-        .sidebar-footer {
-            padding: 8px; border-top: 1px solid var(--c-border); flex-shrink: 0;
-        }
-        .sidebar-footer .s-link {
-            display: flex; align-items: center; gap: 10px;
-            padding: 8px 12px; margin: 1px 0;
-            border-radius: var(--r-sm);
-            color: var(--c-t3); text-decoration: none;
-            font-size: 13px; font-weight: 500;
-            transition: background 0.12s, color 0.12s;
-        }
-        .sidebar-footer .s-link i { font-size: 15px; width: 18px; text-align: center; }
-        .sidebar-footer .s-link:hover { background: #f2f4f8; color: var(--c-t1); }
-
         /* ── Top header ──────────────────────────────────────── */
         #top-header {
             position: fixed;
-            top: 0; left: var(--sidebar-w); right: 0;
+            top: 0; left: 0; right: 0;
             height: var(--header-h);
             background: var(--c-surface);
             border-bottom: 1px solid var(--c-border);
             display: flex; align-items: center;
             padding: 0 22px; gap: 12px;
             z-index: 500;
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .hamburger-btn {
@@ -298,11 +195,9 @@
 
         /* ── Main wrapper ────────────────────────────────────── */
         #main-wrapper {
-            margin-left: var(--sidebar-w);
             padding-top: var(--header-h);
             min-height: 100vh;
             display: flex; flex-direction: column;
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         #page-content { padding: 28px; flex: 1; }
@@ -500,27 +395,12 @@
         .fw-600 { font-weight: 600; }
 
         /* ── Responsive ──────────────────────────────────────── */
-        @media (max-width: 1024px) {
-            #sidebar    { transform: translateX(-100%); }
-            #top-header { left: 0; }
-            #main-wrapper { margin-left: 0; }
-            body.mob-sidebar-open #sidebar { transform: translateX(0); }
-        }
         @media (max-width: 640px) {
             #page-content { padding: 16px; }
             .stat-card .stat-value { font-size: 24px; }
             .kore-card { padding: 16px; }
             .drawer-body { grid-template-columns: repeat(2, 1fr); padding: 14px 16px 20px; }
         }
-
-        /* Mobile sidebar backdrop */
-        #sidebarBackdrop {
-            position: fixed; inset: 0;
-            background: rgba(10,12,20,0.35);
-            z-index: 599; opacity: 0; pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        body.mob-sidebar-open #sidebarBackdrop { opacity: 1; pointer-events: auto; }
     </style>
 
     @stack('styles')
@@ -607,64 +487,6 @@
 
     </div>
 </div>
-
-<!-- ── Sidebar — desktop ──────────────────────────────────────────── -->
-<aside id="sidebar">
-    <div class="sidebar-brand">
-        <div class="brand-icon">K</div>
-        <span class="brand-name">KORE <em>ERP</em></span>
-    </div>
-
-    <div class="sidebar-user">
-        <div class="su-avatar">
-            {{ strtoupper(substr(auth()->user()->first_name ?? 'U', 0, 1)) }}{{ strtoupper(substr(auth()->user()->last_name ?? '', 0, 1)) }}
-        </div>
-        <div>
-            <div class="su-name">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</div>
-            <div class="su-role">{{ auth()->user()->role->name ?? 'Employee' }}</div>
-        </div>
-    </div>
-
-    <nav class="sidebar-nav">
-        <div class="nav-section-label">Main</div>
-        <a href="{{ route('dashboard') }}"      class="s-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
-        <a href="{{ route('proposals.index') }}" class="s-link {{ request()->routeIs('proposals*') ? 'active' : '' }}"><i class="bi bi-file-earmark-text"></i> Proposals</a>
-        <a href="{{ route('projects.index') }}"  class="s-link {{ request()->routeIs('projects*') ? 'active' : '' }}"><i class="bi bi-folder2-open"></i> Projects</a>
-        <a href="{{ route('contacts.index') }}"  class="s-link {{ request()->routeIs('contacts*') ? 'active' : '' }}"><i class="bi bi-person-lines-fill"></i> Contacts</a>
-
-        <div class="nav-section-label">Time &amp; Tasks</div>
-        <a href="{{ route('timesheet.index') }}"  class="s-link {{ request()->routeIs('timesheet*') ? 'active' : '' }}"><i class="bi bi-clock"></i> Timesheet</a>
-        <a href="{{ route('tasks.mine') }}"        class="s-link {{ request()->routeIs('tasks*') ? 'active' : '' }}"><i class="bi bi-check2-square"></i> My Tasks</a>
-        <a href="{{ route('workload.index') }}"    class="s-link {{ request()->routeIs('workload*') ? 'active' : '' }}"><i class="bi bi-bar-chart-steps"></i> My Pipeline</a>
-        <a href="{{ route('approvals.index') }}"   class="s-link {{ request()->routeIs('approvals*') ? 'active' : '' }}"><i class="bi bi-shield-check"></i> Approval Center</a>
-        <a href="{{ route('schedule.project') }}"  class="s-link {{ request()->routeIs('schedule*') ? 'active' : '' }}"><i class="bi bi-calendar3-range"></i> Project Schedule</a>
-        <a href="{{ route('events.index') }}"      class="s-link {{ request()->routeIs('events*') ? 'active' : '' }}"><i class="bi bi-calendar-event"></i> Calendar</a>
-
-        <div class="nav-section-label">Finance</div>
-        <a href="{{ route('invoices.index') }}" class="s-link {{ request()->routeIs('invoices*') ? 'active' : '' }}"><i class="bi bi-receipt"></i> Invoicing</a>
-
-        <div class="nav-section-label">AI</div>
-        <a href="{{ route('ai.index') }}" class="s-link {{ request()->routeIs('ai*') ? 'active' : '' }}"><i class="bi bi-robot"></i> Kore AI</a>
-
-        @if(auth()->user()->role->name === 'Admin')
-        <div class="nav-section-label">System</div>
-        <a href="{{ route('admin.index') }}" class="s-link {{ request()->routeIs('admin*') ? 'active' : '' }}"><i class="bi bi-gear-fill"></i> Administration</a>
-        @endif
-    </nav>
-
-    <div class="sidebar-footer">
-        <a href="{{ route('profile') }}" class="s-link"><i class="bi bi-person-circle"></i> My Profile</a>
-        <form action="{{ route('logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="s-link w-100 text-start bg-transparent border-0" style="font-size:13.5px;font-weight:500;cursor:pointer;">
-                <i class="bi bi-box-arrow-left"></i> Sign Out
-            </button>
-        </form>
-    </div>
-</aside>
-
-<!-- Mobile sidebar backdrop -->
-<div id="sidebarBackdrop" onclick="document.body.classList.remove('mob-sidebar-open')"></div>
 
 <!-- ── Main content ───────────────────────────────────────────────── -->
 <div id="main-wrapper">
