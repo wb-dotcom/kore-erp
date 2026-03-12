@@ -73,23 +73,21 @@
 
         /* ── Header logo ─────────────────────────────────────── */
         .hdr-logo-link {
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center;
             text-decoration: none; flex-shrink: 0;
-            padding: 2px 6px 2px 2px;
-            border-radius: var(--r-sm);
-            transition: background 0.12s;
+            border-radius: 50%;
+            transition: box-shadow 0.18s, transform 0.15s;
         }
-        .hdr-logo-link:hover { background: #f2f4f8; }
+        .hdr-logo-link:hover {
+            transform: scale(1.06);
+            box-shadow: 0 3px 14px rgba(76,139,245,0.28);
+        }
         .hdr-logo-img {
-            width: 30px; height: 30px;
-            object-fit: contain; flex-shrink: 0;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            object-fit: cover; flex-shrink: 0;
+            display: block;
         }
-        .hdr-logo-text {
-            font-size: 14px; font-weight: 700;
-            color: var(--c-t1); letter-spacing: -0.3px;
-            line-height: 1;
-        }
-        .hdr-logo-text em { font-style: normal; color: var(--c-accent); }
 
         /* ── Divider ─────────────────────────────────────────── */
         .hdr-divider {
@@ -474,7 +472,7 @@
 <div id="navDrawer">
     <div class="drawer-header">
         <div class="drawer-header-left">
-            <div class="brand-icon">K</div>
+            <img src="{{ asset('images/logo.png') }}" alt="Kore ERP" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">
             <span class="brand-name">KORE <em>ERP</em></span>
         </div>
         <button class="drawer-close" onclick="closeNavDrawer()">
@@ -558,10 +556,9 @@
             <i class="bi bi-list"></i>
         </button>
 
-        {{-- Logo --}}
-        <a href="{{ route('dashboard') }}" class="hdr-logo-link" title="Kore ERP">
-            <img src="{{ asset('images/logo.svg') }}" alt="Kore ERP" class="hdr-logo-img">
-            <span class="hdr-logo-text d-none d-md-inline">KORE <em>ERP</em></span>
+        {{-- K5 Logo --}}
+        <a href="{{ route('dashboard') }}" class="hdr-logo-link" title="Back to Dashboard">
+            <img src="{{ asset('images/logo.png') }}" alt="Kore ERP" class="hdr-logo-img">
         </a>
 
         <div class="hdr-divider"></div>
