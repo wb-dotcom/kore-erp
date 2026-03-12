@@ -103,7 +103,7 @@
                 {{ $log->action }}
                 @if($log->details) — <em>{{ $log->details }}</em> @endif
             </div>
-            <div style="font-size:0.72rem; color:#9ca3af;">{{ $log->created_at->diffForHumans() }}</div>
+            <div style="font-size:0.72rem; color:#9ca3af;">{{ \Carbon\Carbon::parse($log->created_at)->diffForHumans() }}</div>
         </div>
     </div>
     @empty
