@@ -45,6 +45,14 @@
 
 @section('content')
 
+{{-- Welcome --}}
+<div style="margin-bottom:26px;">
+    <div>
+        <h2 style="font-size:22px;font-weight:800;color:var(--c-t1);letter-spacing:-0.5px;margin:0 0 2px;">KPI Dashboard</h2>
+        <p style="font-size:13.5px;color:var(--c-t3);margin:0;">Organisation performance metrics — {{ now()->format('F Y') }}</p>
+    </div>
+</div>
+
 {{-- Dashboard Tab Navigation --}}
 <nav class="dashboard-tabs">
     <ul class="nav nav-pills gap-1">

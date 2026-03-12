@@ -40,6 +40,19 @@
 
 @section('content')
 
+{{-- Welcome --}}
+<div style="margin-bottom:26px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--c-t1);letter-spacing:-0.5px;margin:0 0 2px;">Financial Overview</h2>
+            <p style="font-size:13.5px;color:var(--c-t3);margin:0;">Revenue, invoices and financial performance — {{ now()->format('F Y') }}</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ route('invoices.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i> New Invoice</a>
+        </div>
+    </div>
+</div>
+
 {{-- Dashboard Tab Navigation --}}
 <nav class="dashboard-tabs">
     <ul class="nav nav-pills gap-1">

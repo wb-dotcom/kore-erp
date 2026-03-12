@@ -2,47 +2,57 @@
 
 @push('styles')
 <style>
-/* ── Employee Dashboard ────────────────────────────────── */
-.task-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 11px 0;
-    border-bottom: 1px solid #f3f4f6;
-    transition: background 0.12s;
-    border-radius: 8px;
+/* ── Employee Dashboard ──────────────────────────────────── */
+.welcome-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 26px; flex-wrap: wrap; gap: 12px;
 }
-.task-item:last-child { border-bottom: none; }
-.task-item:hover { background: #f9fafb; padding-left: 6px; padding-right: 6px; margin: 0 -6px; }
-.task-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0; margin-top: 1px;
+.welcome-bar .welcome-text h2 {
+    font-size: 22px; font-weight: 800; color: var(--c-t1);
+    letter-spacing: -0.5px; margin: 0 0 2px;
 }
-.timesheet-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 9px 0; border-bottom: 1px solid #f3f4f6;
+.welcome-bar .welcome-text p {
+    font-size: 13.5px; color: var(--c-t3); margin: 0;
 }
-.timesheet-row:last-child { border-bottom: none; }
+.welcome-bar .welcome-actions { display: flex; gap: 8px; align-items: center; }
 
-/* Hours arc widget */
-.hours-arc-wrap {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; padding: 10px 0;
+.task-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0; border-bottom: 1px solid #f2f4f8;
+    transition: padding 0.12s;
 }
-.hours-arc {
-    position: relative; width: 110px; height: 110px;
+.task-row:last-child { border-bottom: none; }
+.task-row:hover { padding-left: 4px; }
+.task-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.info-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid #f2f4f8;
+    font-size: 13.5px;
 }
-.hours-arc svg { transform: rotate(-90deg); }
-.hours-arc .arc-bg { fill: none; stroke: #f3f4f6; stroke-width: 10; }
-.hours-arc .arc-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1); }
-.hours-arc .arc-label {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
-.hours-arc .arc-value { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; color: #1a1d23; }
-.hours-arc .arc-unit  { font-size: 0.65rem; color: #9ca3af; font-weight: 500; margin-top: -2px; }
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--c-t3); font-weight: 500; font-size: 13px; }
+.info-value { font-weight: 600; color: var(--c-t1); }
 </style>
 @endpush
 
 @section('content')
+
+{{-- Welcome Banner --}}
+<div class="welcome-bar">
+    <div class="welcome-text">
+        <h2>Welcome back, {{ auth()->user()->first_name }}! 👋</h2>
+        <p>Here's what's on your plate today — {{ now()->format('l, F j, Y') }}</p>
+    </div>
+    <div class="welcome-actions">
+        <a href="{{ route('timesheet.index') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-clock me-1"></i> Log Time
+        </a>
+        <a href="{{ route('tasks.mine') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-check2-square me-1"></i> My Tasks
+        </a>
+    </div>
+</div>
 
 {{-- Dashboard Tab Navigation --}}
 <nav class="dashboard-tabs">
@@ -75,23 +85,23 @@
 {{-- Stat Row --}}
 <div class="row g-3 mb-4">
 
-    {{-- Hours This Week — Arc Widget --}}
+    {{-- Hours --}}
     <div class="col-sm-6 col-lg-3">
         <div class="stat-card accent-blue h-100">
             <div class="stat-card-top">
                 <div class="stat-icon-wrap" style="background:rgba(76,139,245,0.1);">
                     <i class="bi bi-clock-history" style="color:#4c8bf5;"></i>
                 </div>
-                <span class="badge-draft" style="font-size:0.65rem;padding:3px 8px;border-radius:20px;background:#f3f4f6;color:#6b7280;">This Week</span>
+                <span class="trend-flat">This week</span>
             </div>
             <div class="stat-value" style="color:#4c8bf5;">{{ number_format($hoursThisWeek, 1) }}</div>
             <div class="stat-label">Hours Logged</div>
-            <div class="mt-2">
-                @php $pct = min(100, ($hoursThisWeek / 40) * 100); @endphp
-                <div class="progress mt-2" style="height:4px;">
-                    <div class="progress-bar" style="width:{{ $pct }}%; background:#4c8bf5;"></div>
+            @php $pct = min(100, ($hoursThisWeek / 40) * 100); @endphp
+            <div class="mt-3">
+                <div class="progress" style="height:5px;">
+                    <div class="progress-bar" style="width:{{ $pct }}%;background:#4c8bf5;"></div>
                 </div>
-                <div style="font-size:0.65rem;color:#9ca3af;margin-top:4px;">{{ round($pct) }}% of 40h target</div>
+                <div style="font-size:11px;color:var(--c-t4);margin-top:5px;">{{ round($pct) }}% of 40h weekly target</div>
             </div>
         </div>
     </div>
@@ -132,22 +142,18 @@
                     <i class="bi bi-calendar3" style="color:#8b5cf6;"></i>
                 </div>
             </div>
-            <div class="mt-1">
-                @if($currentTimesheet)
-                    @php
-                        $tsColor = match($currentTimesheet->status) {
-                            'approved'  => '#22c55e',
-                            'submitted' => '#4c8bf5',
-                            default     => '#f59e0b',
-                        };
-                    @endphp
-                    <div style="font-size:1.3rem;font-weight:700;color:{{ $tsColor }};letter-spacing:-0.5px;">
-                        {{ ucfirst($currentTimesheet->status) }}
-                    </div>
-                @else
-                    <div style="font-size:1.1rem;font-weight:700;color:#9ca3af;">None</div>
-                @endif
-            </div>
+            @if($currentTimesheet)
+                @php
+                    $tsColor = match($currentTimesheet->status) {
+                        'approved'  => '#22c55e',
+                        'submitted' => '#4c8bf5',
+                        default     => '#f59e0b',
+                    };
+                @endphp
+                <div class="stat-value" style="color:{{ $tsColor }};font-size:22px;letter-spacing:-0.5px;">{{ ucfirst($currentTimesheet->status) }}</div>
+            @else
+                <div class="stat-value" style="color:var(--c-t4);font-size:22px;">None</div>
+            @endif
             <div class="stat-label">Timesheet Status</div>
             <div class="stat-sublabel">Current period</div>
         </div>
@@ -155,53 +161,47 @@
 </div>
 
 <div class="row g-4">
+
     {{-- My Active Tasks --}}
     <div class="col-lg-7">
         <div class="kore-card h-100">
             <div class="kore-card-header">
-                <h5><i class="bi bi-check2-square me-2" style="color:#4c8bf5;"></i>My Active Tasks</h5>
+                <h5><i class="bi bi-check2-square me-2" style="color:#4c8bf5;"></i>Active Tasks</h5>
                 <a href="{{ route('tasks.mine') }}" class="btn btn-sm btn-outline-primary">View All</a>
             </div>
 
             @forelse($myTasks as $assignment)
             @php
-                $task    = $assignment->task;
-                $project = $task?->milestone?->deliverable?->project;
+                $task      = $assignment->task;
+                $project   = $task?->milestone?->deliverable?->project;
                 $isOverdue = $task?->end_date && $task->end_date->isPast();
-                $dotColor = $isOverdue ? '#ef4444' : '#4c8bf5';
+                $dotColor  = $isOverdue ? '#ef4444' : '#22c55e';
             @endphp
-            <div class="task-item">
+            <div class="task-row">
                 <div class="task-dot" style="background:{{ $dotColor }};"></div>
                 <div class="flex-grow-1" style="min-width:0;">
-                    <a href="#" class="text-decoration-none fw-600 text-truncate d-block" style="font-size:0.82rem;color:#1a1d23;">
-                        {{ $task?->name }}
-                    </a>
-                    <div style="font-size:0.71rem; color:#9ca3af;">
+                    <div class="fw-600 text-truncate" style="font-size:13.5px;color:var(--c-t1);">{{ $task?->name }}</div>
+                    <div style="font-size:12px;color:var(--c-t4);">
                         {{ $project?->title ?? '—' }}
                         @if($task?->end_date)
-                            &nbsp;·&nbsp;
-                            <span style="color:{{ $isOverdue ? '#ef4444' : '#9ca3af' }};">
+                            &nbsp;·&nbsp;<span style="color:{{ $isOverdue ? '#ef4444' : 'var(--c-t4)' }};">
                                 {{ $isOverdue ? 'Overdue · ' : 'Due ' }}{{ $task->end_date->format('M d') }}
                             </span>
                         @endif
                     </div>
                 </div>
-                @if($isOverdue)
-                    <span class="badge badge-overdue">Overdue</span>
-                @else
-                    <span class="badge badge-active">Active</span>
-                @endif
+                <span class="badge badge-{{ $isOverdue ? 'overdue' : 'active' }}">{{ $isOverdue ? 'Overdue' : 'Active' }}</span>
             </div>
             @empty
             <div class="empty-state">
                 <i class="bi bi-check-circle"></i>
-                <p>No active tasks assigned to you.</p>
+                <p>No active tasks — you're all caught up!</p>
             </div>
             @endforelse
         </div>
     </div>
 
-    {{-- Right Column --}}
+    {{-- Right column --}}
     <div class="col-lg-5">
 
         {{-- Current Timesheet --}}
@@ -211,16 +211,16 @@
                 <a href="{{ route('timesheet.index') }}" class="btn btn-sm btn-outline-primary">Open</a>
             </div>
             @if($currentTimesheet && $currentTimesheet->period)
-                <div class="timesheet-row">
-                    <span style="font-size:0.78rem;color:#9ca3af;font-weight:500;">Period</span>
-                    <span style="font-size:0.8rem;font-weight:600;">{{ $currentTimesheet->period->label }}</span>
+                <div class="info-row">
+                    <span class="info-label">Period</span>
+                    <span class="info-value">{{ $currentTimesheet->period->label }}</span>
                 </div>
-                <div class="timesheet-row">
-                    <span style="font-size:0.78rem;color:#9ca3af;font-weight:500;">Total Hours</span>
-                    <span style="font-size:1rem;font-weight:700;color:#1a1d23;">{{ number_format($currentTimesheet->total_hours, 1) }}h</span>
+                <div class="info-row">
+                    <span class="info-label">Total Hours</span>
+                    <span class="info-value" style="font-size:16px;">{{ number_format($currentTimesheet->total_hours, 1) }}h</span>
                 </div>
-                <div class="timesheet-row">
-                    <span style="font-size:0.78rem;color:#9ca3af;font-weight:500;">Status</span>
+                <div class="info-row">
+                    <span class="info-label">Status</span>
                     @php
                         $tsCls = match($currentTimesheet->status) {
                             'approved'  => 'approved',
@@ -245,17 +245,17 @@
             @endif
         </div>
 
-        {{-- Pending Time-Off --}}
+        {{-- Time-Off Requests --}}
         <div class="kore-card">
             <div class="kore-card-header">
                 <h5><i class="bi bi-calendar-check me-2" style="color:#f59e0b;"></i>Time-Off Requests</h5>
                 <a href="{{ route('approvals.time-off') }}" class="btn btn-sm btn-outline-secondary">History</a>
             </div>
             @forelse($pendingTimeOff as $req)
-            <div class="timesheet-row">
+            <div class="info-row">
                 <div>
-                    <div style="font-size:0.8rem;font-weight:500;">{{ ucfirst(str_replace('_', ' ', $req->request_type)) }}</div>
-                    <div style="font-size:0.71rem;color:#9ca3af;">
+                    <div style="font-size:13.5px;font-weight:500;color:var(--c-t1);">{{ ucfirst(str_replace('_', ' ', $req->request_type)) }}</div>
+                    <div style="font-size:12px;color:var(--c-t4);">
                         <i class="bi bi-calendar2 me-1"></i>{{ $req->start_date->format('M d') }} – {{ $req->end_date->format('M d, Y') }}
                     </div>
                 </div>
