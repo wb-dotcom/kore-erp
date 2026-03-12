@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Maps a role name to its billing/cost rate.
@@ -19,6 +20,7 @@ class ScheduleOfFee extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'fee_schedule_id',
         'role_name',
         'hourly_rate',
         'project_type_id',
@@ -29,6 +31,11 @@ class ScheduleOfFee extends Model
         'hourly_rate'    => 'decimal:2',
         'effective_date' => 'date',
     ];
+
+    public function feeSchedule(): BelongsTo
+    {
+        return $this->belongsTo(FeeSchedule::class, 'fee_schedule_id');
+    }
 
     public function projectType(): BelongsTo
     {

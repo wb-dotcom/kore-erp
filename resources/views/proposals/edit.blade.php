@@ -198,6 +198,26 @@
             <h5><i class="bi bi-receipt me-2"></i>Billing &amp; Terms</h5>
         </div>
         <div class="row g-3">
+            {{-- Fee Schedule selector --}}
+            <div class="col-12">
+                <label class="form-label fw-600">
+                    <i class="bi bi-cash-stack me-1 text-warning"></i> Schedule of Fees
+                </label>
+                <select name="fee_schedule_id" class="form-select form-select-sm">
+                    <option value="">— No schedule / manual rates —</option>
+                    @foreach($feeSchedules as $fs)
+                    <option value="{{ $fs->id }}"
+                        {{ old('fee_schedule_id', $proposal->fee_schedule_id) == $fs->id ? 'selected' : '' }}>
+                        {{ $fs->name }}{{ $fs->is_default ? ' (Default)' : '' }}
+                    </option>
+                    @endforeach
+                </select>
+                <div class="form-text" style="font-size:0.68rem;">
+                    Determines hourly rates for T&amp;M deliverables. Manage schedules in
+                    <a href="{{ route('admin.fee-schedules.index') }}" target="_blank">Admin → Fee Schedules</a>.
+                </div>
+            </div>
+
             <div class="col-sm-5">
                 <label class="form-label">Billing Type</label>
                 <select name="billing_type" id="billingType" class="form-select form-select-sm">

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\FeeSchedule;
 
 class Proposal extends Model
 {
@@ -46,6 +47,8 @@ class Proposal extends Model
         // Google Doc integration
         'google_doc_url',
         'google_doc_synced_at',
+        // Schedule of fees
+        'fee_schedule_id',
     ];
 
     protected $casts = [
@@ -104,6 +107,11 @@ class Proposal extends Model
     public function program(): BelongsTo
     {
         return $this->belongsTo(Program::class, 'program_id');
+    }
+
+    public function feeSchedule(): BelongsTo
+    {
+        return $this->belongsTo(FeeSchedule::class, 'fee_schedule_id');
     }
 
     public function project(): HasOne

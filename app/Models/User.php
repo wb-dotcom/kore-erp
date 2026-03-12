@@ -40,6 +40,7 @@ class User extends Authenticatable
         'hire_date',
         'is_active',
         'last_login',
+        'google_id',
     ];
 
     protected $hidden = [

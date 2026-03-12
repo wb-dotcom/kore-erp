@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\ActivityTemplate;
 use App\Models\Company;
 use App\Models\Contact;
+use App\Models\FeeSchedule;
 use App\Models\Program;
 use App\Models\ProjectType;
 use App\Models\Proposal;
@@ -61,13 +62,16 @@ class ProposalController extends Controller
         $contacts     = Contact::where('is_active', 1)->orderBy('first_name')->get();
 
         // Auto-generate next proposal number for current year
-        $year       = now()->year;
-        $lastNumber = Proposal::where('year', $year)->max('proposal_number') ?? 0;
-        $nextNumber = $lastNumber + 1;
+        $year          = now()->year;
+        $lastNumber    = Proposal::where('year', $year)->max('proposal_number') ?? 0;
+        $nextNumber    = $lastNumber + 1;
+        $feeSchedules  = FeeSchedule::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
+        $defaultSchedule = FeeSchedule::getDefault();
 
         return view('proposals.create', compact(
             'companies', 'statuses', 'sectors', 'workTypes', 'managers',
-            'projectTypes', 'programs', 'contacts', 'year', 'nextNumber'
+            'projectTypes', 'programs', 'contacts', 'year', 'nextNumber',
+            'feeSchedules', 'defaultSchedule'
         ));
     }
 
@@ -101,6 +105,7 @@ class ProposalController extends Controller
             'executive_summary'     => ['nullable', 'string'],
             'scope_of_work'         => ['nullable', 'string'],
             'terms_and_conditions'  => ['nullable', 'string'],
+            'fee_schedule_id'       => ['nullable', 'exists:fee_schedules,id'],
         ]);
 
         $data['created_by'] = auth()->id();
@@ -118,7 +123,7 @@ class ProposalController extends Controller
         $proposal->load([
             'company', 'contact', 'status', 'sector', 'workType', 'projectType',
             'accountManager', 'createdBy', 'project', 'rateSchedules',
-            'program', 'billingSchedule.periods',
+            'program', 'billingSchedule.periods', 'feeSchedule.rates',
             'deliverables.activities.tasks',
         ]);
         $activityTemplates = ActivityTemplate::orderBy('name')->get();
@@ -135,10 +140,11 @@ class ProposalController extends Controller
         $projectTypes = ProjectType::orderBy('name')->get();
         $programs     = Program::where('status', 'active')->orderBy('name')->get();
         $contacts     = Contact::where('is_active', 1)->orderBy('first_name')->get();
+        $feeSchedules = FeeSchedule::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
 
         return view('proposals.edit', compact(
             'proposal', 'companies', 'statuses', 'sectors', 'workTypes', 'managers',
-            'projectTypes', 'programs', 'contacts'
+            'projectTypes', 'programs', 'contacts', 'feeSchedules'
         ));
     }
 
@@ -172,6 +178,7 @@ class ProposalController extends Controller
             'executive_summary'     => ['nullable', 'string'],
             'scope_of_work'         => ['nullable', 'string'],
             'terms_and_conditions'  => ['nullable', 'string'],
+            'fee_schedule_id'       => ['nullable', 'exists:fee_schedules,id'],
         ]);
 
         $proposal->update($data);

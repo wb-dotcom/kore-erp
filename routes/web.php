@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProjectController;
@@ -43,6 +44,10 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+// ─── GOOGLE OAUTH ───────────────────────────────────────────────────────────
+Route::get('/auth/google',          [SocialAuthController::class, 'redirectToGoogle'])->name('auth.google');
+Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 
 // ─── PROTECTED ROUTES (require auth) ──────────────────────────────────────
 Route::middleware(['auth.kore'])->group(function () {
@@ -170,6 +175,13 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::resource('holidays', \App\Http\Controllers\HolidayController::class);
         Route::get('/schedule-of-fees',         [AdminController::class, 'scheduleOfFees'])->name('schedule-of-fees');
         Route::post('/schedule-of-fees',        [AdminController::class, 'saveScheduleOfFees'])->name('schedule-of-fees.save');
+        // Named fee schedules
+        Route::get('/fee-schedules',                     [AdminController::class, 'feeSchedules'])->name('fee-schedules.index');
+        Route::get('/fee-schedules/create',              [AdminController::class, 'createFeeSchedule'])->name('fee-schedules.create');
+        Route::post('/fee-schedules',                    [AdminController::class, 'storeFeeSchedule'])->name('fee-schedules.store');
+        Route::get('/fee-schedules/{feeSchedule}/edit',  [AdminController::class, 'editFeeSchedule'])->name('fee-schedules.edit');
+        Route::put('/fee-schedules/{feeSchedule}',       [AdminController::class, 'updateFeeSchedule'])->name('fee-schedules.update');
+        Route::delete('/fee-schedules/{feeSchedule}',    [AdminController::class, 'destroyFeeSchedule'])->name('fee-schedules.destroy');
         Route::resource('sectors',          \App\Http\Controllers\SectorController::class);
         Route::resource('regions',          \App\Http\Controllers\RegionController::class);
         Route::resource('work-types',       \App\Http\Controllers\WorkTypeController::class);

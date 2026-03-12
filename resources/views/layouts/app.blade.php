@@ -27,7 +27,7 @@
         /* ── Sidebar ─────────────────────────────────────────────── */
         #sidebar {
             width: 240px;
-            min-height: 100vh;
+            height: 100vh;
             background: #1a1d23;
             color: #a9b0be;
             display: flex;
@@ -36,6 +36,7 @@
             top: 0; left: 0;
             z-index: 1000;
             transition: width 0.25s ease;
+            overflow: hidden;
         }
         #sidebar.collapsed { width: 60px; }
 
@@ -78,7 +79,7 @@
         .sidebar-user .user-role { font-size: 0.7rem; color: #6b7280; white-space: nowrap; }
         #sidebar.collapsed .user-info { display: none; }
 
-        .sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; }
+        .sidebar-nav { flex: 1; padding: 8px 0; overflow-y: auto; overflow-x: hidden; min-height: 0; }
 
         .nav-section-label {
             font-size: 0.65rem;

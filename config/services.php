@@ -31,6 +31,10 @@ return [
         'delegate_email'       => env('GOOGLE_DELEGATE_EMAIL'),
         // Google Drive folder ID where proposals are created
         'proposals_folder_id'  => env('GOOGLE_PROPOSALS_FOLDER_ID'),
+        // ── OAuth (Socialite — Sign in with Google) ──────────────────
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect'      => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
     // ── Ollama (Phase 3 — Local LLM) ────────────────────────────────────────

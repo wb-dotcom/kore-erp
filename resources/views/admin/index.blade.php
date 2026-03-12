@@ -76,11 +76,11 @@
         </a>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <a href="{{ route('admin.schedule-of-fees') }}" class="text-decoration-none">
+        <a href="{{ route('admin.fee-schedules.index') }}" class="text-decoration-none">
             <div class="kore-card text-center py-3">
-                <i class="bi bi-currency-dollar fs-3 mb-1" style="color:#f59e0b;"></i>
-                <div class="fw-600" style="font-size:0.85rem;">Schedule of Fees</div>
-                <div style="font-size:0.72rem; color:#9ca3af;">Billing rates</div>
+                <i class="bi bi-cash-stack fs-3 mb-1" style="color:#f59e0b;"></i>
+                <div class="fw-600" style="font-size:0.85rem;">Fee Schedules</div>
+                <div style="font-size:0.72rem; color:#9ca3af;">Named billing rate tables</div>
             </div>
         </a>
     </div>

@@ -272,8 +272,13 @@ class ProjectController extends Controller
 
     public function deliverables(Project $project)
     {
-        $project->load('deliverables.milestones.tasks');
-        return view('projects.deliverables', compact('project'));
+        $project->load(['deliverables.milestones.tasks', 'proposal.feeSchedule.rates']);
+        $billingType  = $project->proposal?->billing_type ?? 'fixed';
+        $isFixed      = in_array($billingType, ['fixed', 'per_deliverable']);
+        $isHourly     = in_array($billingType, ['time_and_material', 'hybrid', 'retainer']);
+        $feeRates     = $project->proposal?->feeSchedule?->rates ?? collect();
+
+        return view('projects.deliverables', compact('project', 'billingType', 'isFixed', 'isHourly', 'feeRates'));
     }
 
     public function storeDeliverable(Request $request, Project $project)

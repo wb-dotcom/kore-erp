@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\ApprovalSetting;
+use App\Models\FeeSchedule;
 use App\Models\PtoPolicy;
 use App\Models\ScheduleOfFee;
 use App\Models\SystemSetting;
@@ -85,51 +86,115 @@ class AdminController extends Controller
         return back()->with('success', "{$user->full_name}'s PTO policy saved.");
     }
 
+    // ── Fee Schedules (named, multi-schedule) ─────────────────────────────────
+
+    public function feeSchedules()
+    {
+        $schedules = FeeSchedule::withCount('rates')->orderByDesc('is_default')->orderBy('name')->get();
+        return view('admin.fee-schedules.index', compact('schedules'));
+    }
+
+    public function createFeeSchedule()
+    {
+        return view('admin.fee-schedules.create');
+    }
+
+    public function storeFeeSchedule(Request $request)
+    {
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string'],
+            'is_active'   => ['boolean'],
+            'is_default'  => ['boolean'],
+        ]);
+
+        if (! empty($data['is_default'])) {
+            FeeSchedule::where('is_default', true)->update(['is_default' => false]);
+        }
+
+        $schedule = FeeSchedule::create([
+            'name'        => $data['name'],
+            'description' => $data['description'] ?? null,
+            'is_active'   => $data['is_active'] ?? true,
+            'is_default'  => $data['is_default'] ?? false,
+        ]);
+
+        ActivityLog::record('Created fee schedule', 'fee_schedules', $schedule->id, $schedule->name);
+
+        return redirect()->route('admin.fee-schedules.edit', $schedule)->with('success', 'Fee schedule created. Now add rates.');
+    }
+
+    public function editFeeSchedule(FeeSchedule $feeSchedule)
+    {
+        $rates = $feeSchedule->rates()->orderBy('role_name')->get();
+        return view('admin.fee-schedules.edit', compact('feeSchedule', 'rates'));
+    }
+
+    public function updateFeeSchedule(Request $request, FeeSchedule $feeSchedule)
+    {
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string'],
+            'is_active'   => ['boolean'],
+            'is_default'  => ['boolean'],
+            'rates'                   => ['nullable', 'array'],
+            'rates.*.id'              => ['nullable', 'integer'],
+            'rates.*.role_name'       => ['required', 'string', 'max:100'],
+            'rates.*.hourly_rate'     => ['required', 'numeric', 'min:0'],
+        ]);
+
+        if (! empty($data['is_default'])) {
+            FeeSchedule::where('id', '!=', $feeSchedule->id)->where('is_default', true)->update(['is_default' => false]);
+        }
+
+        $feeSchedule->update([
+            'name'        => $data['name'],
+            'description' => $data['description'] ?? null,
+            'is_active'   => $data['is_active'] ?? false,
+            'is_default'  => $data['is_default'] ?? false,
+        ]);
+
+        $submittedIds = [];
+        foreach ($data['rates'] ?? [] as $row) {
+            if (empty(trim($row['role_name'] ?? ''))) continue;
+
+            $fee = isset($row['id']) && $row['id'] ? ScheduleOfFee::find($row['id']) : null;
+            if (! $fee) $fee = new ScheduleOfFee();
+
+            $fee->fee_schedule_id = $feeSchedule->id;
+            $fee->role_name       = trim($row['role_name']);
+            $fee->hourly_rate     = $row['hourly_rate'];
+            $fee->save();
+            $submittedIds[] = $fee->id;
+        }
+
+        // Remove rates deleted from the form
+        ScheduleOfFee::where('fee_schedule_id', $feeSchedule->id)
+            ->when(! empty($submittedIds), fn($q) => $q->whereNotIn('id', $submittedIds))
+            ->delete();
+
+        ActivityLog::record('Updated fee schedule', 'fee_schedules', $feeSchedule->id, $feeSchedule->name);
+
+        return back()->with('success', 'Fee schedule saved successfully.');
+    }
+
+    public function destroyFeeSchedule(FeeSchedule $feeSchedule)
+    {
+        $feeSchedule->delete();
+        return redirect()->route('admin.fee-schedules.index')->with('success', 'Fee schedule deleted.');
+    }
+
+    // ── Legacy flat schedule (kept for backward compatibility) ─────────────────
+
     public function scheduleOfFees()
     {
-        $fees = ScheduleOfFee::orderBy('role_name')->get();
-        return view('admin.schedule-of-fees', compact('fees'));
+        // Redirect to new named schedules list
+        return redirect()->route('admin.fee-schedules.index');
     }
 
     public function saveScheduleOfFees(Request $request)
     {
-        $data = $request->validate([
-            'fees'              => ['nullable', 'array'],
-            'fees.*.id'         => ['nullable', 'integer'],
-            'fees.*.role_name'  => ['required', 'string', 'max:100'],
-            'fees.*.hourly_rate'=> ['required', 'numeric', 'min:0'],
-            'fees.*.effective_date' => ['nullable', 'date'],
-        ]);
-
-        $submittedIds = [];
-
-        foreach ($data['fees'] ?? [] as $row) {
-            if (empty(trim($row['role_name']))) continue;
-
-            $fee = isset($row['id']) && $row['id']
-                ? ScheduleOfFee::find($row['id'])
-                : new ScheduleOfFee();
-
-            if (! $fee) $fee = new ScheduleOfFee();
-
-            $fee->role_name      = trim($row['role_name']);
-            $fee->hourly_rate    = $row['hourly_rate'];
-            $fee->effective_date = $row['effective_date'] ?? null;
-            $fee->save();
-
-            $submittedIds[] = $fee->id;
-        }
-
-        // Delete rows that were removed from the form
-        if (! empty($submittedIds)) {
-            ScheduleOfFee::whereNotIn('id', $submittedIds)->delete();
-        } else {
-            ScheduleOfFee::truncate();
-        }
-
-        ActivityLog::record('Updated schedule of fees', 'system_settings', null, count($submittedIds) . ' rates');
-
-        return back()->with('success', 'Schedule of fees saved successfully.');
+        return redirect()->route('admin.fee-schedules.index');
     }
 
     public function systemSettings()
