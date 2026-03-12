@@ -303,14 +303,13 @@ class ProjectController extends Controller
         $data = $request->validate([
             'name'            => ['required', 'string', 'max:255'],
             'description'     => ['nullable', 'string'],
-            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
-            'rate'            => ['nullable', 'numeric', 'min:0'],
             'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
+            'start_date'      => ['nullable', 'date'],
             'due_date'        => ['nullable', 'date'],
         ]);
 
         $data['sort_order']   = $project->deliverables()->max('sort_order') + 1;
-        $data['budget_hours'] = $data['budget_hours'] ?? 0;
+        $data['budget_hours'] = 0; // always computed from tasks
 
         $project->deliverables()->create($data);
 
@@ -322,14 +321,13 @@ class ProjectController extends Controller
         $data = $request->validate([
             'name'            => ['required', 'string', 'max:255'],
             'description'     => ['nullable', 'string'],
-            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
-            'rate'            => ['nullable', 'numeric', 'min:0'],
             'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
+            'start_date'      => ['nullable', 'date'],
             'due_date'        => ['nullable', 'date'],
         ]);
 
         $data['sort_order']   = $deliverable->milestones()->max('sort_order') + 1;
-        $data['budget_hours'] = $data['budget_hours'] ?? 0;
+        $data['budget_hours'] = 0; // always computed from tasks
 
         $deliverable->milestones()->create($data);
 
@@ -362,10 +360,9 @@ class ProjectController extends Controller
         $data = $request->validate([
             'name'            => ['required', 'string', 'max:255'],
             'description'     => ['nullable', 'string'],
-            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
-            'rate'            => ['nullable', 'numeric', 'min:0'],
             'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
             'billing_status'  => ['nullable', 'in:pending,ready_to_bill,invoiced,paid'],
+            'start_date'      => ['nullable', 'date'],
             'due_date'        => ['nullable', 'date'],
         ]);
 
@@ -391,10 +388,9 @@ class ProjectController extends Controller
         $data = $request->validate([
             'name'            => ['required', 'string', 'max:255'],
             'description'     => ['nullable', 'string'],
-            'budget_hours'    => ['nullable', 'numeric', 'min:0'],
-            'rate'            => ['nullable', 'numeric', 'min:0'],
             'deliverable_fee' => ['nullable', 'numeric', 'min:0'],
             'billing_status'  => ['nullable', 'in:pending,ready_to_bill,invoiced,paid'],
+            'start_date'      => ['nullable', 'date'],
             'due_date'        => ['nullable', 'date'],
         ]);
 
@@ -425,7 +421,37 @@ class ProjectController extends Controller
 
         $task->update($data);
 
+        // Cascade finish-to-start dates to all successor tasks
+        if ($task->fresh()->end_date) {
+            $this->cascadeTaskDates($task->fresh());
+        }
+
         return back()->with('success', 'Task updated.');
+    }
+
+    /** Recursively push successor task dates forward based on dependency chain. */
+    private function cascadeTaskDates(Task $task, int $depth = 0): void
+    {
+        if ($depth > 30 || ! $task->end_date) return;
+
+        $successors = TaskDependency::where('depends_on_id', $task->id)->with('task')->get();
+
+        foreach ($successors as $dep) {
+            $successor = $dep->task;
+            if (! $successor) continue;
+
+            $newStart = $task->end_date->copy()->addDays(max(0, $dep->lag_days) + 1);
+
+            // Preserve the original duration when shifting dates
+            $duration = ($successor->start_date && $successor->end_date)
+                ? (int) $successor->start_date->diffInDays($successor->end_date)
+                : 0;
+
+            $newEnd = $newStart->copy()->addDays($duration);
+            $successor->update(['start_date' => $newStart, 'end_date' => $newEnd]);
+
+            $this->cascadeTaskDates($successor, $depth + 1);
+        }
     }
 
     public function destroyTask(Task $task)

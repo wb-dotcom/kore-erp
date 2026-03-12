@@ -84,6 +84,15 @@
             </div>
         </a>
     </div>
+    <div class="col-sm-6 col-lg-3">
+        <a href="{{ route('admin.templates') }}" class="text-decoration-none">
+            <div class="kore-card text-center py-3">
+                <i class="bi bi-layers fs-3 mb-1" style="color:#10b981;"></i>
+                <div class="fw-600" style="font-size:0.85rem;">Project Templates</div>
+                <div style="font-size:0.72rem; color:#9ca3af;">Reusable WBS structures</div>
+            </div>
+        </a>
+    </div>
 </div>
 
 {{-- Recent Activity --}}

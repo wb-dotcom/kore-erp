@@ -25,6 +25,7 @@ use App\Http\Controllers\WorkloadController;
 use App\Http\Controllers\ProjectNoteController;
 use App\Http\Controllers\ProjectTypeController;
 use App\Http\Controllers\ProjectStatusController;
+use App\Http\Controllers\ActivityTemplateAdminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -204,8 +205,20 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::get('/system-settings',          [AdminController::class, 'systemSettings'])->name('system-settings');
         Route::post('/system-settings',         [AdminController::class, 'saveSystemSettings'])->name('system-settings.save');
         Route::get('/activity-log',             [AdminController::class, 'activityLog'])->name('activity-log');
-        Route::get('/templates',                [AdminController::class, 'templates'])->name('templates');
-        Route::post('/templates',               [AdminController::class, 'saveTemplate'])->name('templates.save');
+        Route::get('/templates',                                            [ActivityTemplateAdminController::class, 'index'])->name('templates');
+        Route::post('/templates',                                           [ActivityTemplateAdminController::class, 'store'])->name('templates.store');
+        Route::get('/templates/{activityTemplate}',                         [ActivityTemplateAdminController::class, 'show'])->name('templates.show');
+        Route::put('/templates/{activityTemplate}',                         [ActivityTemplateAdminController::class, 'update'])->name('templates.update');
+        Route::delete('/templates/{activityTemplate}',                      [ActivityTemplateAdminController::class, 'destroy'])->name('templates.destroy');
+        Route::post('/templates/{activityTemplate}/deliverables',           [ActivityTemplateAdminController::class, 'storeDeliverable'])->name('templates.deliverables.store');
+        Route::put('/templates/deliverables/{deliverable}',                 [ActivityTemplateAdminController::class, 'updateDeliverable'])->name('templates.deliverables.update');
+        Route::delete('/templates/deliverables/{deliverable}',              [ActivityTemplateAdminController::class, 'destroyDeliverable'])->name('templates.deliverables.destroy');
+        Route::post('/templates/deliverables/{deliverable}/activities',     [ActivityTemplateAdminController::class, 'storeActivity'])->name('templates.activities.store');
+        Route::put('/templates/activities/{activity}',                      [ActivityTemplateAdminController::class, 'updateActivity'])->name('templates.activities.update');
+        Route::delete('/templates/activities/{activity}',                   [ActivityTemplateAdminController::class, 'destroyActivity'])->name('templates.activities.destroy');
+        Route::post('/templates/activities/{activity}/tasks',               [ActivityTemplateAdminController::class, 'storeTask'])->name('templates.tasks.store');
+        Route::put('/templates/tasks/{task}',                               [ActivityTemplateAdminController::class, 'updateTask'])->name('templates.tasks.update');
+        Route::delete('/templates/tasks/{task}',                            [ActivityTemplateAdminController::class, 'destroyTask'])->name('templates.tasks.destroy');
     });
 
     // User profile
