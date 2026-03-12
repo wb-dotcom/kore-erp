@@ -74,13 +74,7 @@
         /* ── Header logo ─────────────────────────────────────── */
         .hdr-logo-link {
             display: flex; align-items: center;
-            text-decoration: none; flex-shrink: 0;
-            border-radius: 50%;
-            transition: box-shadow 0.18s, transform 0.15s;
-        }
-        .hdr-logo-link:hover {
-            transform: scale(1.06);
-            box-shadow: 0 3px 14px rgba(76,139,245,0.28);
+            flex-shrink: 0;
         }
         .hdr-logo-img {
             width: 36px; height: 36px;
@@ -557,9 +551,9 @@
         </button>
 
         {{-- K5 Logo --}}
-        <a href="{{ route('dashboard') }}" class="hdr-logo-link" title="Back to Dashboard">
+        <span class="hdr-logo-link">
             <img src="{{ asset('images/logo.png') }}" alt="Kore ERP" class="hdr-logo-img">
-        </a>
+        </span>
 
         <div class="hdr-divider"></div>
 
