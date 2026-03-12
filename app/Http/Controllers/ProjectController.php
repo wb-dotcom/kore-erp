@@ -292,7 +292,8 @@ class ProjectController extends Controller
             'due_date'        => ['nullable', 'date'],
         ]);
 
-        $data['sort_order'] = $project->deliverables()->max('sort_order') + 1;
+        $data['sort_order']   = $project->deliverables()->max('sort_order') + 1;
+        $data['budget_hours'] = $data['budget_hours'] ?? 0;
 
         $project->deliverables()->create($data);
 
@@ -310,7 +311,8 @@ class ProjectController extends Controller
             'due_date'        => ['nullable', 'date'],
         ]);
 
-        $data['sort_order'] = $deliverable->milestones()->max('sort_order') + 1;
+        $data['sort_order']   = $deliverable->milestones()->max('sort_order') + 1;
+        $data['budget_hours'] = $data['budget_hours'] ?? 0;
 
         $deliverable->milestones()->create($data);
 
@@ -329,8 +331,9 @@ class ProjectController extends Controller
             'rate'         => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $data['sort_order'] = $milestone->tasks()->max('sort_order') + 1;
-        $data['status']     = $data['status'] ?? 'pending';
+        $data['sort_order']   = $milestone->tasks()->max('sort_order') + 1;
+        $data['status']       = $data['status'] ?? 'pending';
+        $data['budget_hours'] = $data['budget_hours'] ?? 0;
 
         $milestone->tasks()->create($data);
 
