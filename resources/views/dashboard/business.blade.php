@@ -1,5 +1,36 @@
 @extends('layouts.app')
 
+@push('styles')
+<style>
+/* ── Business Dashboard ────────────────────────────────── */
+.table-row-link { cursor: pointer; }
+.table-row-link:hover td { background: #f5f8ff !important; }
+
+.chart-header-controls {
+    display: flex; align-items: center; gap: 8px;
+}
+.chart-type-btn {
+    width: 30px; height: 30px; border-radius: 8px;
+    border: 1.5px solid #e5e7eb; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; font-size: 0.8rem;
+    color: #9ca3af;
+}
+.chart-type-btn:hover, .chart-type-btn.active {
+    background: #4c8bf5; border-color: #4c8bf5; color: #fff;
+}
+
+.status-legend-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 8px;
+    cursor: pointer; transition: background 0.12s;
+    font-size: 0.75rem; color: #6b7280;
+}
+.status-legend-item:hover { background: #f5f6fa; }
+.status-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+</style>
+@endpush
+
 @section('content')
 
 {{-- Dashboard Tab Navigation --}}
@@ -31,32 +62,64 @@
 {{-- Stat Row --}}
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-3">
-        <div class="stat-card">
-            <div class="stat-icon text-primary"><i class="bi bi-folder2-open"></i></div>
-            <div class="stat-value">{{ $activeProjects }}</div>
+        <div class="stat-card accent-blue h-100">
+            <div class="stat-card-top">
+                <div class="stat-icon-wrap" style="background:rgba(76,139,245,0.1);">
+                    <i class="bi bi-folder2-open" style="color:#4c8bf5;"></i>
+                </div>
+            </div>
+            <div class="stat-value" style="color:#4c8bf5;">{{ $activeProjects }}</div>
             <div class="stat-label">Active Projects</div>
+            <div class="stat-sublabel">Currently in progress</div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="stat-card">
-            <div class="stat-icon text-success"><i class="bi bi-file-earmark-check"></i></div>
-            <div class="stat-value">{{ $proposalStats->get('Approved', 0) }}</div>
+        <div class="stat-card accent-green h-100">
+            <div class="stat-card-top">
+                <div class="stat-icon-wrap" style="background:rgba(34,197,94,0.1);">
+                    <i class="bi bi-file-earmark-check" style="color:#22c55e;"></i>
+                </div>
+            </div>
+            <div class="stat-value" style="color:#22c55e;">{{ $proposalStats->get('Approved', 0) }}</div>
             <div class="stat-label">Approved Proposals</div>
+            <div class="stat-sublabel">Won engagements</div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="stat-card">
-            <div class="stat-icon text-warning"><i class="bi bi-file-earmark-text"></i></div>
-            <div class="stat-value">{{ $proposalStats->get('Submitted', 0) }}</div>
+        <div class="stat-card accent-amber h-100">
+            <div class="stat-card-top">
+                <div class="stat-icon-wrap" style="background:rgba(245,158,11,0.1);">
+                    <i class="bi bi-send" style="color:#f59e0b;"></i>
+                </div>
+            </div>
+            <div class="stat-value" style="color:#f59e0b;">{{ $proposalStats->get('Submitted', 0) }}</div>
             <div class="stat-label">Proposals Submitted</div>
+            <div class="stat-sublabel">Awaiting decision</div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="stat-card">
-            <div class="stat-icon text-secondary"><i class="bi bi-file-earmark"></i></div>
-            <div class="stat-value">{{ $proposalStats->get('Draft', 0) }}</div>
+        <div class="stat-card h-100">
+            <div class="stat-card-top">
+                <div class="stat-icon-wrap" style="background:rgba(107,114,128,0.1);">
+                    <i class="bi bi-file-earmark" style="color:#6b7280;"></i>
+                </div>
+            </div>
+            <div class="stat-value" style="color:#6b7280;">{{ $proposalStats->get('Draft', 0) }}</div>
             <div class="stat-label">Proposals in Draft</div>
+            <div class="stat-sublabel">Work in progress</div>
         </div>
+    </div>
+</div>
+
+{{-- Filter Bar --}}
+<div class="filter-bar">
+    <span style="font-size:0.75rem;color:#9ca3af;font-weight:500;margin-right:4px;">Filter by Status:</span>
+    <button class="filter-pill active-all" id="filterAll" onclick="filterTable('all')">All</button>
+    <button class="filter-pill" id="filterApproved" onclick="filterTable('approved')"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem;color:#22c55e;"></i>Approved</button>
+    <button class="filter-pill" id="filterSubmitted" onclick="filterTable('submitted')"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem;color:#4c8bf5;"></i>Submitted</button>
+    <button class="filter-pill" id="filterDraft" onclick="filterTable('draft')"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem;color:#9ca3af;"></i>Draft</button>
+    <div style="margin-left:auto;">
+        <input type="text" class="filter-select" id="proposalSearch" placeholder="&#xF52A; Search proposals..." style="width:200px;" oninput="searchTable()">
     </div>
 </div>
 
@@ -65,10 +128,10 @@
     <div class="col-lg-6">
         <div class="kore-card">
             <div class="kore-card-header">
-                <h5><i class="bi bi-file-earmark-text me-2"></i>Recent Proposals</h5>
+                <h5><i class="bi bi-file-earmark-text me-2" style="color:#4c8bf5;"></i>Recent Proposals</h5>
                 <a href="{{ route('proposals.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
             </div>
-            <table class="table kore-table mb-0">
+            <table class="table kore-table mb-0" id="proposalsTable">
                 <thead>
                     <tr>
                         <th>Ref</th>
@@ -79,28 +142,27 @@
                 </thead>
                 <tbody>
                     @forelse($recentProposals as $proposal)
-                    <tr>
+                    @php
+                        $statusName = $proposal->status?->name ?? '—';
+                        $statusClass = match($statusName) {
+                            'Approved'  => 'approved',
+                            'Submitted' => 'active',
+                            'Rejected'  => 'rejected',
+                            default     => 'draft',
+                        };
+                    @endphp
+                    <tr class="table-row-link" data-status="{{ strtolower($statusName) }}" onclick="window.location='{{ route('proposals.show', $proposal) }}'">
                         <td>
-                            <a href="{{ route('proposals.show', $proposal) }}" class="text-decoration-none fw-600" style="font-size:0.78rem;">
-                                {{ $proposal->ref }}
-                            </a>
+                            <span class="fw-600" style="font-size:0.78rem;color:#4c8bf5;">{{ $proposal->ref }}</span>
                         </td>
-                        <td class="text-truncate" style="max-width:140px;">{{ $proposal->title }}</td>
-                        <td style="color:#6b7280;">{{ $proposal->company?->name ?? '—' }}</td>
+                        <td class="text-truncate" style="max-width:140px;font-weight:500;">{{ $proposal->title }}</td>
+                        <td style="color:#9ca3af;font-size:0.75rem;">{{ $proposal->company?->name ?? '—' }}</td>
                         <td>
-                            @php
-                                $statusClass = match($proposal->status?->name) {
-                                    'Approved'  => 'approved',
-                                    'Submitted' => 'active',
-                                    'Rejected'  => 'rejected',
-                                    default     => 'draft',
-                                };
-                            @endphp
-                            <span class="badge badge-{{ $statusClass }}">{{ $proposal->status?->name ?? '—' }}</span>
+                            <span class="badge badge-{{ $statusClass }}">{{ $statusName }}</span>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="4" class="text-center text-muted py-3">No proposals yet.</td></tr>
+                    <tr><td colspan="4" class="text-center text-muted py-4">No proposals yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -111,7 +173,7 @@
     <div class="col-lg-6">
         <div class="kore-card">
             <div class="kore-card-header">
-                <h5><i class="bi bi-folder2-open me-2"></i>Recent Projects</h5>
+                <h5><i class="bi bi-folder2-open me-2" style="color:#22c55e;"></i>Recent Projects</h5>
                 <a href="{{ route('projects.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
             </div>
             <table class="table kore-table mb-0">
@@ -125,28 +187,27 @@
                 </thead>
                 <tbody>
                     @forelse($recentProjects as $project)
-                    <tr>
+                    @php
+                        $pStatusName = $project->status?->name ?? '—';
+                        $pStatusClass = match($pStatusName) {
+                            'Active'    => 'active',
+                            'Completed' => 'completed',
+                            'On Hold'   => 'pending',
+                            default     => 'draft',
+                        };
+                    @endphp
+                    <tr class="table-row-link" onclick="window.location='{{ route('projects.show', $project) }}'">
                         <td>
-                            <a href="{{ route('projects.show', $project) }}" class="text-decoration-none fw-600" style="font-size:0.78rem;">
-                                {{ $project->project_number }}
-                            </a>
+                            <span class="fw-600" style="font-size:0.78rem;color:#4c8bf5;">{{ $project->project_number }}</span>
                         </td>
-                        <td class="text-truncate" style="max-width:140px;">{{ $project->title }}</td>
-                        <td style="color:#6b7280;">{{ $project->company?->name ?? '—' }}</td>
+                        <td class="text-truncate" style="max-width:140px;font-weight:500;">{{ $project->title }}</td>
+                        <td style="color:#9ca3af;font-size:0.75rem;">{{ $project->company?->name ?? '—' }}</td>
                         <td>
-                            @php
-                                $statusClass = match($project->status?->name) {
-                                    'Active'    => 'active',
-                                    'Completed' => 'completed',
-                                    'On Hold'   => 'pending',
-                                    default     => 'draft',
-                                };
-                            @endphp
-                            <span class="badge badge-{{ $statusClass }}">{{ $project->status?->name ?? '—' }}</span>
+                            <span class="badge badge-{{ $pStatusClass }}">{{ $pStatusName }}</span>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="4" class="text-center text-muted py-3">No projects yet.</td></tr>
+                    <tr><td colspan="4" class="text-center text-muted py-4">No projects yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -154,22 +215,41 @@
     </div>
 </div>
 
-{{-- Project Status Chart --}}
+{{-- Charts Row --}}
 <div class="row g-4 mt-0">
     <div class="col-lg-5">
         <div class="kore-card">
             <div class="kore-card-header">
-                <h5><i class="bi bi-pie-chart me-2"></i>Projects by Status</h5>
+                <h5><i class="bi bi-pie-chart me-2" style="color:#8b5cf6;"></i>Projects by Status</h5>
+                <div class="chart-header-controls">
+                    <button class="chart-type-btn active" id="btnDoughnut" title="Doughnut" onclick="switchChart('doughnut')">
+                        <i class="bi bi-circle"></i>
+                    </button>
+                    <button class="chart-type-btn" id="btnPie" title="Pie" onclick="switchChart('pie')">
+                        <i class="bi bi-pie-chart"></i>
+                    </button>
+                </div>
             </div>
-            <canvas id="projectStatusChart" height="200"></canvas>
+            <div style="position:relative;max-width:260px;margin:0 auto;">
+                <canvas id="projectStatusChart" height="220"></canvas>
+            </div>
+            <div id="projectLegend" class="chart-legend-custom mt-2"></div>
         </div>
     </div>
     <div class="col-lg-7">
         <div class="kore-card">
             <div class="kore-card-header">
-                <h5><i class="bi bi-bar-chart me-2"></i>Proposals by Status</h5>
+                <h5><i class="bi bi-bar-chart me-2" style="color:#06b6d4;"></i>Proposals by Status</h5>
+                <div class="chart-header-controls">
+                    <button class="chart-type-btn active" id="btnBar" title="Bar" onclick="switchProposalChart('bar')">
+                        <i class="bi bi-bar-chart"></i>
+                    </button>
+                    <button class="chart-type-btn" id="btnBarH" title="Horizontal" onclick="switchProposalChart('barH')">
+                        <i class="bi bi-bar-chart-steps"></i>
+                    </button>
+                </div>
             </div>
-            <canvas id="proposalStatusChart" height="200"></canvas>
+            <canvas id="proposalStatusChart" height="210"></canvas>
         </div>
     </div>
 </div>
@@ -180,45 +260,133 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
 const COLORS = ['#4c8bf5','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#64748b'];
+const csrfToken = document.querySelector('meta[name=csrf-token]').content;
 
-// Project Status Chart
-fetch('/api/dashboard/chart-data?type=project_status', {
-    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }
-})
+// ── Project Status Chart ──────────────────────────────────────────
+let projectChart, projectData;
+fetch('/api/dashboard/chart-data?type=project_status', { headers: { 'X-CSRF-TOKEN': csrfToken } })
 .then(r => r.json())
 .then(data => {
-    new Chart(document.getElementById('projectStatusChart'), {
-        type: 'doughnut',
-        data: {
-            labels: data.map(d => d.label),
-            datasets: [{ data: data.map(d => d.value), backgroundColor: COLORS, borderWidth: 2 }]
-        },
-        options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
-    });
+    projectData = data;
+    projectChart = buildProjectChart('doughnut');
+    buildProjectLegend(data);
 });
 
-// Proposal Status Chart
-fetch('/api/dashboard/chart-data?type=proposal_status', {
-    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }
-})
-.then(r => r.json())
-.then(data => {
-    new Chart(document.getElementById('proposalStatusChart'), {
-        type: 'bar',
+function buildProjectChart(type) {
+    if (projectChart) projectChart.destroy();
+    return new Chart(document.getElementById('projectStatusChart'), {
+        type: type,
         data: {
-            labels: data.map(d => d.label),
+            labels: projectData.map(d => d.label),
             datasets: [{
-                label: 'Proposals',
-                data: data.map(d => d.value),
+                data: projectData.map(d => d.value),
                 backgroundColor: COLORS,
-                borderRadius: 6
+                borderWidth: 3,
+                borderColor: '#fff',
+                hoverOffset: 6,
             }]
         },
         options: {
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.raw} project${ctx.raw !== 1 ? 's' : ''}`
+                    }
+                }
+            },
+            cutout: type === 'doughnut' ? '62%' : 0,
+            animation: { duration: 500 }
         }
     });
+}
+
+function buildProjectLegend(data) {
+    const legend = document.getElementById('projectLegend');
+    legend.innerHTML = data.map((d, i) =>
+        `<div class="chart-legend-item">
+            <div class="chart-legend-dot" style="background:${COLORS[i]};"></div>
+            <span>${d.label} <strong>${d.value}</strong></span>
+        </div>`
+    ).join('');
+}
+
+function switchChart(type) {
+    projectChart = buildProjectChart(type);
+    document.getElementById('btnDoughnut').classList.toggle('active', type === 'doughnut');
+    document.getElementById('btnPie').classList.toggle('active', type === 'pie');
+}
+
+// ── Proposal Status Chart ─────────────────────────────────────────
+let proposalChart, proposalData;
+fetch('/api/dashboard/chart-data?type=proposal_status', { headers: { 'X-CSRF-TOKEN': csrfToken } })
+.then(r => r.json())
+.then(data => {
+    proposalData = data;
+    proposalChart = buildProposalChart('bar');
 });
+
+function buildProposalChart(type) {
+    if (proposalChart) proposalChart.destroy();
+    const isHorizontal = type === 'barH';
+    return new Chart(document.getElementById('proposalStatusChart'), {
+        type: 'bar',
+        data: {
+            labels: proposalData.map(d => d.label),
+            datasets: [{
+                label: 'Proposals',
+                data: proposalData.map(d => d.value),
+                backgroundColor: COLORS.map(c => c + 'cc'),
+                borderColor: COLORS,
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            indexAxis: isHorizontal ? 'y' : 'x',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, grid: { display: !isHorizontal }, ticks: { stepSize: 1 } },
+                y: { beginAtZero: true, grid: { display: isHorizontal }, ticks: { stepSize: 1 } },
+            },
+            animation: { duration: 400 }
+        }
+    });
+}
+
+function switchProposalChart(type) {
+    proposalChart = buildProposalChart(type);
+    document.getElementById('btnBar').classList.toggle('active', type === 'bar');
+    document.getElementById('btnBarH').classList.toggle('active', type === 'barH');
+}
+
+// ── Client-side filtering ─────────────────────────────────────────
+let activeFilter = 'all';
+
+function filterTable(status) {
+    activeFilter = status;
+    applyFilters();
+    // Update pill styles
+    document.querySelectorAll('.filter-pill').forEach(p => {
+        p.classList.remove('active', 'active-all');
+    });
+    const map = { all: 'filterAll', approved: 'filterApproved', submitted: 'filterSubmitted', draft: 'filterDraft' };
+    const el = document.getElementById(map[status]);
+    if (el) el.classList.add(status === 'all' ? 'active-all' : 'active');
+}
+
+function searchTable() { applyFilters(); }
+
+function applyFilters() {
+    const q = (document.getElementById('proposalSearch')?.value || '').toLowerCase();
+    document.querySelectorAll('#proposalsTable tbody tr').forEach(row => {
+        const rowStatus  = (row.dataset.status || '').toLowerCase();
+        const rowText    = row.textContent.toLowerCase();
+        const statusMatch = activeFilter === 'all' || rowStatus.includes(activeFilter);
+        const searchMatch = !q || rowText.includes(q);
+        row.style.display = statusMatch && searchMatch ? '' : 'none';
+    });
+}
 </script>
 @endpush
