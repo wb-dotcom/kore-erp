@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\ActivityTemplate;
 use App\Models\Company;
 use App\Models\Deliverable;
 use App\Models\Milestone;
@@ -12,7 +13,11 @@ use App\Models\ProjectType;
 use App\Models\Proposal;
 use App\Models\ProposalStatus;
 use App\Models\Task;
+use App\Models\TaskAssignment;
+use App\Models\TaskDependency;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -272,13 +277,25 @@ class ProjectController extends Controller
 
     public function deliverables(Project $project)
     {
-        $project->load(['deliverables.milestones.tasks', 'proposal.feeSchedule.rates']);
-        $billingType  = $project->proposal?->billing_type ?? 'fixed';
-        $isFixed      = in_array($billingType, ['fixed', 'per_deliverable']);
-        $isHourly     = in_array($billingType, ['time_and_material', 'hybrid', 'retainer']);
-        $feeRates     = $project->proposal?->feeSchedule?->rates ?? collect();
+        $project->load([
+            'deliverables.milestones.tasks.assignments.user',
+            'deliverables.milestones.tasks.dependencies.dependsOn',
+            'deliverables.directTasks.assignments.user',
+            'deliverables.directTasks.dependencies.dependsOn',
+            'proposal.feeSchedule.rates',
+        ]);
 
-        return view('projects.deliverables', compact('project', 'billingType', 'isFixed', 'isHourly', 'feeRates'));
+        $billingType = $project->proposal?->billing_type ?? 'fixed';
+        $isFixed     = in_array($billingType, ['fixed', 'per_deliverable']);
+        $isHourly    = in_array($billingType, ['time_and_material', 'hybrid', 'retainer']);
+        $isTm        = $billingType === 'time_and_material';
+        $feeRates    = $project->proposal?->feeSchedule?->rates ?? collect();
+        $templates   = ActivityTemplate::with('deliverables.activities.tasks')->orderBy('name')->get();
+        $users       = User::where('is_active', 1)->orderBy('first_name')->get();
+
+        return view('projects.deliverables', compact(
+            'project', 'billingType', 'isFixed', 'isHourly', 'isTm', 'feeRates', 'templates', 'users'
+        ));
     }
 
     public function storeDeliverable(Request $request, Project $project)
@@ -417,6 +434,273 @@ class ProjectController extends Controller
         $task->delete();
 
         return back()->with('success', "Task \"{$name}\" deleted.");
+    }
+
+    // ─── Direct task under deliverable (no milestone) ────────────────────────
+
+    public function storeDirectTask(Request $request, Deliverable $deliverable): RedirectResponse
+    {
+        $data = $request->validate([
+            'name'         => ['required', 'string', 'max:255'],
+            'description'  => ['nullable', 'string'],
+            'start_date'   => ['nullable', 'date'],
+            'end_date'     => ['nullable', 'date'],
+            'status'       => ['nullable', 'string', 'in:pending,in_progress,complete'],
+            'budget_hours' => ['nullable', 'numeric', 'min:0'],
+            'rate'         => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $data['sort_order']   = $deliverable->directTasks()->max('sort_order') + 1;
+        $data['status']       = $data['status'] ?? 'pending';
+        $data['budget_hours'] = $data['budget_hours'] ?? 0;
+        // milestone_id stays null — task is directly under deliverable
+
+        $deliverable->directTasks()->create($data);
+
+        return back()->with('success', 'Task added.');
+    }
+
+    // ─── Move task to a different parent ─────────────────────────────────────
+
+    public function moveTask(Request $request, Task $task): JsonResponse
+    {
+        $request->validate([
+            'target_type' => ['required', 'in:milestone,deliverable'],
+            'target_id'   => ['required', 'integer'],
+        ]);
+
+        if ($request->target_type === 'milestone') {
+            $milestone = Milestone::findOrFail($request->target_id);
+            $task->update([
+                'milestone_id'   => $milestone->id,
+                'deliverable_id' => null,
+                'sort_order'     => $milestone->tasks()->max('sort_order') + 1,
+            ]);
+        } else {
+            $deliverable = Deliverable::findOrFail($request->target_id);
+            $task->update([
+                'milestone_id'   => null,
+                'deliverable_id' => $deliverable->id,
+                'sort_order'     => $deliverable->directTasks()->max('sort_order') + 1,
+            ]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    // ─── Reorder WBS items ────────────────────────────────────────────────────
+
+    public function reorderWbs(Request $request, Project $project): JsonResponse
+    {
+        $request->validate([
+            'type'               => ['required', 'in:deliverable,milestone,task'],
+            'items'              => ['required', 'array'],
+            'items.*.id'         => ['required', 'integer'],
+            'items.*.sort_order' => ['required', 'integer'],
+        ]);
+
+        $model = match ($request->type) {
+            'deliverable' => Deliverable::class,
+            'milestone'   => Milestone::class,
+            'task'        => Task::class,
+        };
+
+        foreach ($request->items as $item) {
+            $model::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    // ─── Apply system template to project ────────────────────────────────────
+
+    public function applyTemplate(Request $request, Project $project): RedirectResponse
+    {
+        $request->validate(['template_id' => ['required', 'exists:activity_templates,id']]);
+
+        $template  = ActivityTemplate::with('deliverables.activities.tasks')->findOrFail($request->template_id);
+        $startDate = $project->start_date ?? today();
+
+        foreach ($template->deliverables as $td) {
+            $deliverable = $project->deliverables()->create([
+                'name'         => $td->name,
+                'description'  => $td->description,
+                'sort_order'   => $project->deliverables()->max('sort_order') + 1,
+                'budget_hours' => 0,
+            ]);
+
+            foreach ($td->activities as $ta) {
+                $milestone = $deliverable->milestones()->create([
+                    'name'         => $ta->name,
+                    'description'  => $ta->description,
+                    'sort_order'   => $deliverable->milestones()->max('sort_order') + 1,
+                    'budget_hours' => $ta->budgeted_hours ?? 0,
+                    'start_date'   => $ta->relative_start_day !== null
+                        ? $startDate->copy()->addDays($ta->relative_start_day) : null,
+                    'due_date'     => $ta->relative_end_day !== null
+                        ? $startDate->copy()->addDays($ta->relative_end_day) : null,
+                ]);
+
+                foreach ($ta->tasks as $tt) {
+                    $milestone->tasks()->create([
+                        'name'         => $tt->name,
+                        'description'  => $tt->description,
+                        'sort_order'   => $milestone->tasks()->max('sort_order') + 1,
+                        'status'       => 'pending',
+                        'budget_hours' => $tt->estimated_hours ?? 0,
+                        'end_date'     => $tt->relative_due_day !== null
+                            ? $startDate->copy()->addDays($tt->relative_due_day) : null,
+                    ]);
+                }
+            }
+        }
+
+        ActivityLog::record('Applied template to project', 'projects', $project->id, $template->name);
+
+        return back()->with('success', "Template \"{$template->name}\" applied — {$template->deliverables->count()} deliverables added.");
+    }
+
+    // ─── Gantt chart data ─────────────────────────────────────────────────────
+
+    public function ganttData(Project $project): JsonResponse
+    {
+        $project->load([
+            'deliverables.milestones.tasks.dependencies',
+            'deliverables.directTasks.dependencies',
+        ]);
+
+        $tasks = [];
+
+        foreach ($project->deliverables as $d) {
+            foreach ($d->milestones as $m) {
+                foreach ($m->tasks as $task) {
+                    if ($task->start_date && $task->end_date) {
+                        $tasks[] = $this->taskToGantt($task, $d->name . ' / ' . $m->name);
+                    }
+                }
+            }
+            foreach ($d->directTasks as $task) {
+                if ($task->start_date && $task->end_date) {
+                    $tasks[] = $this->taskToGantt($task, $d->name);
+                }
+            }
+        }
+
+        return response()->json($tasks);
+    }
+
+    private function taskToGantt(Task $task, string $group): array
+    {
+        $depIds = $task->dependencies
+            ->map(fn ($d) => 'task-' . $d->depends_on_id)
+            ->implode(', ');
+
+        $progress = match ($task->status) {
+            'complete'    => 100,
+            'in_progress' => 50,
+            default       => 0,
+        };
+
+        return [
+            'id'           => 'task-' . $task->id,
+            'name'         => $task->name,
+            'start'        => $task->start_date->format('Y-m-d'),
+            'end'          => $task->end_date->format('Y-m-d'),
+            'progress'     => $progress,
+            'dependencies' => $depIds,
+            'custom_class' => 'gantt-' . $task->status,
+            'deliverable'  => $group,
+        ];
+    }
+
+    // ─── Task dependencies ────────────────────────────────────────────────────
+
+    public function storeDependency(Request $request, Task $task): JsonResponse
+    {
+        $request->validate([
+            'depends_on_id' => ['required', 'integer', 'exists:tasks,id', 'different:task_id'],
+            'lag_days'      => ['nullable', 'integer'],
+        ]);
+
+        // Prevent circular dependency (simple check: depends_on can't already depend on task)
+        $wouldCircle = TaskDependency::where('task_id', $request->depends_on_id)
+            ->where('depends_on_id', $task->id)
+            ->exists();
+
+        if ($wouldCircle) {
+            return response()->json(['error' => 'Circular dependency detected.'], 422);
+        }
+
+        $dep = TaskDependency::firstOrCreate(
+            ['task_id' => $task->id, 'depends_on_id' => $request->depends_on_id],
+            ['lag_days' => $request->lag_days ?? 0]
+        );
+
+        return response()->json(['success' => true, 'id' => $dep->id]);
+    }
+
+    public function destroyDependency(Task $task, int $dependsOnId): JsonResponse
+    {
+        TaskDependency::where('task_id', $task->id)
+            ->where('depends_on_id', $dependsOnId)
+            ->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    // ─── Resource assignments ─────────────────────────────────────────────────
+
+    public function storeAssignment(Request $request, Task $task): JsonResponse
+    {
+        $request->validate([
+            'user_id'      => ['required', 'exists:users,id'],
+            'budget_hours' => ['required', 'numeric', 'min:0'],
+            'role'         => ['nullable', 'string', 'max:100'],
+        ]);
+
+        // One assignment per user per task
+        $assignment = TaskAssignment::updateOrCreate(
+            ['task_id' => $task->id, 'user_id' => $request->user_id],
+            [
+                'budget_hours' => $request->budget_hours,
+                'role'         => $request->role,
+            ]
+        );
+
+        $assignment->load('user');
+
+        return response()->json([
+            'success'    => true,
+            'assignment' => [
+                'id'           => $assignment->id,
+                'user_id'      => $assignment->user_id,
+                'user_name'    => $assignment->user->full_name ?? $assignment->user->first_name . ' ' . $assignment->user->last_name,
+                'initials'     => strtoupper(substr($assignment->user->first_name, 0, 1) . substr($assignment->user->last_name ?? '', 0, 1)),
+                'role'         => $assignment->role,
+                'budget_hours' => (float) $assignment->budget_hours,
+            ],
+        ]);
+    }
+
+    public function updateAssignment(Request $request, TaskAssignment $assignment): JsonResponse
+    {
+        $request->validate([
+            'budget_hours' => ['required', 'numeric', 'min:0'],
+            'role'         => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $assignment->update([
+            'budget_hours' => $request->budget_hours,
+            'role'         => $request->role,
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function destroyAssignment(TaskAssignment $assignment): JsonResponse
+    {
+        $assignment->delete();
+        return response()->json(['success' => true]);
     }
 
     // ─── AJAX Endpoints ──────────────────────────────────────────────────────

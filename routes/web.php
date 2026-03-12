@@ -112,6 +112,19 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::post('/milestones/{milestone}/tasks',                               [ProjectController::class, 'storeTask'])->name('projects.tasks.store');
     Route::put('/tasks/{task}',                                                [ProjectController::class, 'updateTask'])->name('projects.tasks.update');
     Route::delete('/tasks/{task}',                                             [ProjectController::class, 'destroyTask'])->name('projects.tasks.destroy');
+    // Direct task under deliverable (no milestone)
+    Route::post('/deliverables/{deliverable}/direct-tasks',                    [ProjectController::class, 'storeDirectTask'])->name('projects.deliverables.direct-tasks.store');
+    // Task operations
+    Route::post('/tasks/{task}/move',                                          [ProjectController::class, 'moveTask'])->name('projects.tasks.move');
+    Route::post('/tasks/{task}/dependencies',                                  [ProjectController::class, 'storeDependency'])->name('projects.tasks.dependencies.store');
+    Route::delete('/tasks/{task}/dependencies/{dependsOnId}',                  [ProjectController::class, 'destroyDependency'])->name('projects.tasks.dependencies.destroy');
+    Route::post('/tasks/{task}/assignments',                                   [ProjectController::class, 'storeAssignment'])->name('projects.tasks.assignments.store');
+    Route::put('/task-assignments/{assignment}',                               [ProjectController::class, 'updateAssignment'])->name('projects.assignments.update');
+    Route::delete('/task-assignments/{assignment}',                            [ProjectController::class, 'destroyAssignment'])->name('projects.assignments.destroy');
+    // Project-level WBS operations
+    Route::post('/projects/{project}/wbs-reorder',                             [ProjectController::class, 'reorderWbs'])->name('projects.wbs.reorder');
+    Route::post('/projects/{project}/apply-template',                          [ProjectController::class, 'applyTemplate'])->name('projects.apply-template');
+    Route::get('/projects/{project}/gantt-data',                               [ProjectController::class, 'ganttData'])->name('projects.gantt-data');
 
     // Project Notes / Todos
     Route::post('/projects/{project}/notes',                      [ProjectNoteController::class, 'store'])->name('projects.notes.store');
