@@ -133,7 +133,6 @@ class BillingScheduleController extends Controller
             // Build only the columns that are guaranteed to exist
             $invoiceData = [
                 'invoice_number' => $invoiceNumber,
-                'project_id'     => $proposal->project?->id,
                 'company_id'     => $proposal->company_id,
                 'invoice_date'   => $invoiceDate,
                 'due_date'       => $dueDate,
@@ -146,7 +145,12 @@ class BillingScheduleController extends Controller
                 'created_by'     => auth()->id(),
             ];
 
-            // Add new columns only if they exist in the schema
+            // Add nullable project link
+            if ($proposal->project?->id) {
+                $invoiceData['project_id'] = $proposal->project->id;
+            }
+
+            // Add new columns only if they exist in the schema (migration guard)
             $invoiceColumns = \Schema::getColumnListing('invoices');
             if (in_array('proposal_id', $invoiceColumns)) {
                 $invoiceData['proposal_id'] = $proposal->id;
