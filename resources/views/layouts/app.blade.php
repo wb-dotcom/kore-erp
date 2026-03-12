@@ -71,9 +71,52 @@
         .hamburger-btn:hover { background: #f2f4f8; color: var(--c-t1); }
         .hamburger-btn i { font-size: 20px; }
 
+        /* ── Header logo ─────────────────────────────────────── */
+        .hdr-logo-link {
+            display: flex; align-items: center; gap: 8px;
+            text-decoration: none; flex-shrink: 0;
+            padding: 2px 6px 2px 2px;
+            border-radius: var(--r-sm);
+            transition: background 0.12s;
+        }
+        .hdr-logo-link:hover { background: #f2f4f8; }
+        .hdr-logo-img {
+            width: 30px; height: 30px;
+            object-fit: contain; flex-shrink: 0;
+        }
+        .hdr-logo-text {
+            font-size: 14px; font-weight: 700;
+            color: var(--c-t1); letter-spacing: -0.3px;
+            line-height: 1;
+        }
+        .hdr-logo-text em { font-style: normal; color: var(--c-accent); }
+
+        /* ── Divider ─────────────────────────────────────────── */
+        .hdr-divider {
+            width: 1px; height: 22px;
+            background: var(--c-border); flex-shrink: 0;
+        }
+
+        /* ── Page title / dashboard link ─────────────────────── */
         .hdr-title {
             font-size: 15px; font-weight: 600;
             color: var(--c-t1); flex: 1; letter-spacing: -0.2px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .hdr-title-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            text-decoration: none;
+            color: var(--c-t1); font-weight: 600;
+            padding: 4px 8px; border-radius: var(--r-sm);
+            transition: background 0.12s, color 0.12s;
+        }
+        .hdr-title-link:hover { background: #f2f4f8; color: var(--c-accent); }
+        .hdr-title-link i { font-size: 16px; }
+        .hdr-title-sep {
+            color: var(--c-t4); font-weight: 400; font-size: 14px;
+        }
+        .hdr-title-page {
+            color: var(--c-t2); font-weight: 600; font-size: 15px;
         }
 
         .hdr-search { position: relative; }
@@ -515,7 +558,28 @@
             <i class="bi bi-list"></i>
         </button>
 
-        <span class="hdr-title">{{ $title ?? 'Dashboard' }}</span>
+        {{-- Logo --}}
+        <a href="{{ route('dashboard') }}" class="hdr-logo-link" title="Kore ERP">
+            <img src="{{ asset('images/logo.svg') }}" alt="Kore ERP" class="hdr-logo-img">
+            <span class="hdr-logo-text d-none d-md-inline">KORE <em>ERP</em></span>
+        </a>
+
+        <div class="hdr-divider"></div>
+
+        {{-- Page title — dashboard icon links home; on non-dashboard pages show breadcrumb --}}
+        <span class="hdr-title">
+            @if(request()->routeIs('dashboard'))
+                <i class="bi bi-grid-1x2-fill" style="color:var(--c-accent);font-size:16px;"></i>
+                Dashboard
+            @else
+                <a href="{{ route('dashboard') }}" class="hdr-title-link" title="Back to Dashboard">
+                    <i class="bi bi-house-fill"></i>
+                    <span class="d-none d-sm-inline">Dashboard</span>
+                </a>
+                <span class="hdr-title-sep">/</span>
+                <span class="hdr-title-page">{{ $title ?? 'Dashboard' }}</span>
+            @endif
+        </span>
 
         <div class="hdr-search d-none d-md-block">
             <i class="bi bi-search"></i>
