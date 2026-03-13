@@ -88,7 +88,17 @@
                 <span style="font-size:0.72rem; color:#9ca3af;">&bull; {{ $project->company->name }}</span>
             @endif
             @if($project->proposal)
-                <span class="badge {{ $isFixed ? 'bg-success' : 'bg-primary' }}" style="font-size:0.62rem;">
+            @php
+                $btBadgeClass = match($billingType) {
+                    'fixed'           => 'bg-success',
+                    'time_and_material' => 'bg-primary',
+                    'hybrid'          => 'bg-purple text-white',
+                    'retainer'        => 'bg-warning text-dark',
+                    'per_deliverable' => 'bg-info text-dark',
+                    default           => 'bg-secondary',
+                };
+            @endphp
+                <span class="badge {{ $btBadgeClass }}" style="font-size:0.62rem;">
                     {{ ucwords(str_replace('_', ' ', $billingType)) }}
                 </span>
             @endif
@@ -138,11 +148,13 @@
                 <i class="bi bi-grip-vertical drag-handle"></i>
                 <i class="bi bi-folder2-open text-primary" style="flex-shrink:0;"></i>
                 <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $deliverable->name }}</span>
-                @if($isHourly && $dHours > 0)
+                @if($dHours > 0)
                     <span class="badge bg-primary-subtle text-primary" style="font-size:0.62rem; flex-shrink:0;">{{ number_format($dHours, 1) }}h</span>
                 @endif
-                @if($isFixed && $deliverable->deliverable_fee > 0)
-                    <span class="badge bg-success-subtle text-success" style="font-size:0.62rem; flex-shrink:0;">${{ number_format($deliverable->deliverable_fee, 0) }}</span>
+                @if($showDeliverableFee && $deliverable->deliverable_fee > 0)
+                    @php $bsColor = match($deliverable->billing_status ?? 'pending') { 'paid' => '#22c55e', 'invoiced' => '#3b82f6', 'ready_to_bill' => '#f59e0b', default => '#9ca3af' }; @endphp
+                    <span class="badge" style="background:#ecfdf5; color:#059669; font-size:0.62rem; flex-shrink:0;">${{ number_format($deliverable->deliverable_fee, 0) }}</span>
+                    <span class="badge" style="background:#f3f4f6; color:{{ $bsColor }}; font-size:0.6rem; flex-shrink:0;">{{ ucwords(str_replace('_',' ',$deliverable->billing_status ?? 'pending')) }}</span>
                 @endif
             </div>
             <div class="deliverable-meta d-flex flex-wrap gap-2">
@@ -193,7 +205,7 @@
             <i class="bi bi-grip-vertical drag-handle" style="font-size:0.72rem;"></i>
             <i class="bi bi-flag" style="color:#f59e0b; font-size:0.78rem;"></i>
             <span>{{ $milestone->name }}</span>
-            @if($isHourly && $mHours > 0)
+            @if($mHours > 0)
                 <span style="font-size:0.7rem; color:#9ca3af; font-weight:400;">{{ number_format($mHours, 1) }}h</span>
             @endif
             @php $mcs = $milestone->computed_start; $mce = $milestone->computed_end; @endphp
@@ -233,8 +245,8 @@
                     <input type="text" name="name" placeholder="Task name" required style="flex:1; min-width:130px;">
                     <input type="date" name="start_date" title="Start date">
                     <input type="date" name="end_date"   title="End date">
+                    <input type="number" name="budget_hours" step="0.25" min="0" placeholder="Hours" style="width:68px;">
                     @if($isHourly)
-                        <input type="number" name="budget_hours" step="0.25" min="0" placeholder="Hours" style="width:68px;">
                         <input type="number" name="rate" step="0.01" min="0" placeholder="$/hr" style="width:62px;">
                     @endif
                     <button type="submit" class="btn btn-primary btn-add-inline">Add</button>
@@ -268,8 +280,8 @@
                     <input type="text" name="name" placeholder="Task name" required style="flex:1; min-width:130px;">
                     <input type="date" name="start_date" title="Start date">
                     <input type="date" name="end_date"   title="End date">
+                    <input type="number" name="budget_hours" step="0.25" min="0" placeholder="Hours" style="width:68px;">
                     @if($isHourly)
-                        <input type="number" name="budget_hours" step="0.25" min="0" placeholder="Hours" style="width:68px;">
                         <input type="number" name="rate" step="0.01" min="0" placeholder="$/hr" style="width:62px;">
                     @endif
                     <button type="submit" class="btn btn-primary btn-add-inline">Add</button>
@@ -299,7 +311,7 @@
                 <input type="text" name="name" placeholder="Milestone name" required style="flex:1; min-width:150px;">
                 <input type="date" name="start_date" title="Start date">
                 <input type="date" name="due_date"   title="Due date">
-                @if($isFixed)
+                @if($showDeliverableFee)
                     <input type="number" name="deliverable_fee" step="0.01" min="0" placeholder="Fee $" style="width:90px;">
                 @endif
                 <button type="submit" class="btn btn-outline-primary btn-add-inline">Add</button>
@@ -371,9 +383,9 @@
                     <input type="date" name="due_date" class="form-control form-control-sm">
                 </div>
             </div>
-            @if($isFixed)
+            @if($showDeliverableFee)
             <div class="mb-2">
-                <label class="modal-sm-label">Fixed Fee ($)</label>
+                <label class="modal-sm-label">{{ $isPerDeliverable ? 'Deliverable Fee ($)' : 'Fixed Fee ($)' }}</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">$</span>
                     <input type="number" name="deliverable_fee" class="form-control" step="0.01" min="0" placeholder="0.00">
@@ -400,10 +412,12 @@
                 onchange="showTmplPreview(this)">
                 <option value="">— Choose template —</option>
                 @foreach($templates as $tmpl)
+                @php $isMatch = $tmpl->billing_type === $billingType; @endphp
                 <option value="{{ $tmpl->id }}"
                     data-d="{{ $tmpl->deliverables->count() }}"
-                    data-h="{{ $tmpl->total_budgeted_hours }}">
-                    {{ $tmpl->name }}{{ $tmpl->workType ? ' ('.$tmpl->workType->name.')' : '' }}
+                    data-h="{{ $tmpl->total_budgeted_hours }}"
+                    data-match="{{ $isMatch ? '1' : '0' }}">
+                    {{ $isMatch ? '✓ ' : '' }}{{ $tmpl->name }}{{ $tmpl->workType ? ' ('.$tmpl->workType->name.')' : '' }}{{ $tmpl->billing_type && !$isMatch ? ' ['.ucwords(str_replace('_',' ',$tmpl->billing_type)).']' : '' }}
                 </option>
                 @endforeach
             </select>
@@ -421,11 +435,23 @@
         <div class="sidebar-card-title" style="color:#374151;"><i class="bi bi-info-circle"></i> Guide</div>
         @if($isTm)
         <div class="alert alert-info py-1 px-2 mb-2" style="font-size:0.72rem;">
-            <strong>Time &amp; Material</strong> — hours &amp; rates at the task level, roll up automatically.
+            <strong>Time &amp; Material</strong> — hours &amp; rates at task level. Invoices pull actual timesheet entries.
         </div>
         @elseif($isFixed)
         <div class="alert alert-success py-1 px-2 mb-2" style="font-size:0.72rem;">
-            <strong>Fixed Fee</strong> — dollar amounts per deliverable/milestone.
+            <strong>Fixed Fee</strong> — set dollar amounts on deliverables/milestones. Hours tracked but not billed per-task.
+        </div>
+        @elseif($isHybrid)
+        <div class="alert py-1 px-2 mb-2" style="font-size:0.72rem; background:#faf5ff; border-color:#7c3aed; color:#5b21b6;">
+            <strong>Hybrid</strong> — set deliverable fees AND track hours/rates. Both components appear in invoices.
+        </div>
+        @elseif($isRetainer)
+        <div class="alert alert-warning py-1 px-2 mb-2" style="font-size:0.72rem;">
+            <strong>Retainer</strong> — fixed recurring amount. Track hours for utilization reporting only.
+        </div>
+        @elseif($isPerDeliverable)
+        <div class="alert py-1 px-2 mb-2" style="font-size:0.72rem; background:#eff6ff; border-color:#2563eb; color:#1d4ed8;">
+            <strong>Per Deliverable</strong> — set a fee on each deliverable. Invoice generated when deliverable is marked ready to bill.
         </div>
         @endif
         <p class="mb-1"><i class="bi bi-folder2-open me-1 text-primary"></i><strong>Deliverables</strong> — top-level phases.</p>
@@ -464,8 +490,8 @@
                     <div class="col-6"><label class="modal-sm-label">Due Date</label>
                         <input type="date" name="due_date" id="edDue" class="form-control form-control-sm"></div>
                 </div>
-                @if($isFixed)
-                <div class="mb-3"><label class="modal-sm-label">Fixed Fee ($)</label>
+                @if($showDeliverableFee)
+                <div class="mb-3"><label class="modal-sm-label">{{ $isPerDeliverable ? 'Deliverable Fee ($)' : 'Fixed Fee ($)' }}</label>
                     <div class="input-group input-group-sm"><span class="input-group-text">$</span>
                         <input type="number" name="deliverable_fee" id="edFee" class="form-control" step="0.01" min="0">
                     </div>
@@ -509,8 +535,8 @@
                     <div class="col-6"><label class="modal-sm-label">Due Date</label>
                         <input type="date" name="due_date" id="emDue" class="form-control form-control-sm"></div>
                 </div>
-                @if($isFixed)
-                <div class="mb-3"><label class="modal-sm-label">Fixed Fee ($)</label>
+                @if($showDeliverableFee)
+                <div class="mb-3"><label class="modal-sm-label">{{ $isPerDeliverable ? 'Deliverable Fee ($)' : 'Fixed Fee ($)' }}</label>
                     <div class="input-group input-group-sm"><span class="input-group-text">$</span>
                         <input type="number" name="deliverable_fee" id="emFee" class="form-control" step="0.01" min="0">
                     </div>
@@ -563,10 +589,10 @@
                             <option value="cancelled">Cancelled</option>
                         </select>
                     </div>
-                    @if($isHourly)
                     <div class="col-sm-4"><label class="modal-sm-label">Budget Hours</label>
                         <input type="number" name="budget_hours" id="etHours" class="form-control form-control-sm" step="0.25" min="0" placeholder="0.00">
                     </div>
+                    @if($isHourly)
                     <div class="col-sm-4"><label class="modal-sm-label">Rate ($/hr)</label>
                         @if($feeRates->count())
                         <select id="etRateSel" class="form-select form-select-sm mb-1" onchange="applyRate(this)">

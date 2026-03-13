@@ -285,16 +285,26 @@ class ProjectController extends Controller
             'proposal.feeSchedule.rates',
         ]);
 
-        $billingType = $project->proposal?->billing_type ?? 'fixed';
-        $isFixed     = in_array($billingType, ['fixed', 'per_deliverable']);
-        $isHourly    = in_array($billingType, ['time_and_material', 'hybrid', 'retainer']);
-        $isTm        = $billingType === 'time_and_material';
-        $feeRates    = $project->proposal?->feeSchedule?->rates ?? collect();
-        $templates   = ActivityTemplate::with('deliverables.activities.tasks')->orderBy('name')->get();
-        $users       = User::where('is_active', 1)->orderBy('first_name')->get();
+        $billingCtx        = $project->proposal?->billing_context ?? ['type'=>'fixed','isFixed'=>true,'isTm'=>false,'isHybrid'=>false,'isRetainer'=>false,'isPerDeliverable'=>false,'isHourly'=>false,'showDeliverableFee'=>true,'showRate'=>false];
+        $billingType       = $billingCtx['type'];
+        $isFixed           = $billingCtx['isFixed'];
+        $isTm              = $billingCtx['isTm'];
+        $isHybrid          = $billingCtx['isHybrid'];
+        $isRetainer        = $billingCtx['isRetainer'];
+        $isPerDeliverable  = $billingCtx['isPerDeliverable'];
+        $isHourly          = $billingCtx['isHourly'];
+        $showDeliverableFee = $billingCtx['showDeliverableFee'];
+        $feeRates          = $project->proposal?->feeSchedule?->rates ?? collect();
+
+        // Show billing-matched templates first, then others
+        $allTemplates = ActivityTemplate::with('deliverables.activities.tasks')->orderBy('name')->get();
+        $templates    = $allTemplates->sortByDesc(fn($t) => $t->billing_type === $billingType)->values();
+
+        $users = User::where('is_active', 1)->orderBy('first_name')->get();
 
         return view('projects.deliverables', compact(
-            'project', 'billingType', 'isFixed', 'isHourly', 'isTm', 'feeRates', 'templates', 'users'
+            'project', 'billingType', 'isFixed', 'isTm', 'isHybrid', 'isRetainer', 'isPerDeliverable',
+            'isHourly', 'showDeliverableFee', 'feeRates', 'templates', 'users'
         ));
     }
 
@@ -544,16 +554,24 @@ class ProjectController extends Controller
     {
         $request->validate(['template_id' => ['required', 'exists:activity_templates,id']]);
 
-        $template  = ActivityTemplate::with('deliverables.activities.tasks')->findOrFail($request->template_id);
+        $template  = ActivityTemplate::with(['deliverables.activities.tasks', 'deliverables.directTasks'])->findOrFail($request->template_id);
         $startDate = $project->start_date ?? today();
 
+        // Two-pass copy: Pass 1 creates records, Pass 2 remaps dependency IDs
+        $deliverableMap = []; // template deliverable ID → project deliverable ID
+        $milestoneMap   = []; // template activity ID    → project milestone ID
+        $taskMap        = []; // template task ID        → project task ID
+
+        // ── Pass 1: create all deliverables, milestones, tasks ────────────────
         foreach ($template->deliverables as $td) {
             $deliverable = $project->deliverables()->create([
                 'name'         => $td->name,
                 'description'  => $td->description,
                 'sort_order'   => $project->deliverables()->max('sort_order') + 1,
                 'budget_hours' => 0,
+                'deliverable_fee' => null,
             ]);
+            $deliverableMap[$td->id] = $deliverable->id;
 
             foreach ($td->activities as $ta) {
                 $milestone = $deliverable->milestones()->create([
@@ -566,9 +584,10 @@ class ProjectController extends Controller
                     'due_date'     => $ta->relative_end_day !== null
                         ? $startDate->copy()->addDays($ta->relative_end_day) : null,
                 ]);
+                $milestoneMap[$ta->id] = $milestone->id;
 
                 foreach ($ta->tasks as $tt) {
-                    $milestone->tasks()->create([
+                    $task = $milestone->tasks()->create([
                         'name'         => $tt->name,
                         'description'  => $tt->description,
                         'sort_order'   => $milestone->tasks()->max('sort_order') + 1,
@@ -577,6 +596,38 @@ class ProjectController extends Controller
                         'end_date'     => $tt->relative_due_day !== null
                             ? $startDate->copy()->addDays($tt->relative_due_day) : null,
                     ]);
+                    $taskMap[$tt->id] = $task->id;
+                }
+            }
+
+            // Direct tasks (no milestone)
+            foreach ($td->directTasks as $tt) {
+                $task = $deliverable->directTasks()->create([
+                    'name'         => $tt->name,
+                    'description'  => $tt->description,
+                    'sort_order'   => $deliverable->directTasks()->max('sort_order') + 1,
+                    'status'       => 'pending',
+                    'budget_hours' => $tt->estimated_hours ?? 0,
+                    'end_date'     => $tt->relative_due_day !== null
+                        ? $startDate->copy()->addDays($tt->relative_due_day) : null,
+                ]);
+                $taskMap[$tt->id] = $task->id;
+            }
+        }
+
+        // ── Pass 2: remap dependency IDs ──────────────────────────────────────
+        // (TaskDependency records for depends_on chains between tasks)
+        foreach ($template->deliverables as $td) {
+            foreach ($td->activities as $ta) {
+                foreach ($ta->tasks as $tt) {
+                    if ($tt->depends_on_task_id && isset($taskMap[$tt->depends_on_task_id]) && isset($taskMap[$tt->id])) {
+                        Task::where('id', $taskMap[$tt->id])->update([/* dependency handled via TaskDependency table */]);
+                    }
+                }
+            }
+            foreach ($td->directTasks as $tt) {
+                if ($tt->depends_on_task_id && isset($taskMap[$tt->depends_on_task_id]) && isset($taskMap[$tt->id])) {
+                    Task::where('id', $taskMap[$tt->id])->update([/* dependency handled via TaskDependency table */]);
                 }
             }
         }

@@ -742,9 +742,10 @@
                 <label class="form-label">Billing Cycle</label>
                 <select id="bs_billing_cycle" class="form-select form-select-sm">
                     @foreach(['biweekly' => 'Bi-Weekly', 'monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'on_completion' => 'On Completion', 'custom' => 'Custom Dates'] as $val => $label)
-                    <option value="{{ $val }}" {{ ($bs?->billing_cycle === $val) ? 'selected' : '' }}>{{ $label }}</option>
+                    <option value="{{ $val }}" {{ (($bs?->billing_cycle ?? $proposal->billing_cycle) === $val) ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
+                <div id="bs_cycle_hint" style="font-size:0.7rem; color:#6b7280; margin-top:3px;"></div>
             </div>
             <div class="col-sm-2">
                 <label class="form-label">Start Date</label>
@@ -1229,17 +1230,54 @@ async function deleteLineItem(id) {
 
 // ── Billing Schedule ──────────────────────────────────────────────────────────
 function initBillingTab() {
-    // called once when tab is shown
+    // Apply billing type intelligence on first open
+    onBillingTypeChange();
 }
+
+const BILLING_TYPE_CYCLES = {
+    fixed:            ['on_completion', 'custom'],
+    time_and_material:['biweekly', 'monthly', 'quarterly', 'custom'],
+    hybrid:           ['monthly', 'quarterly', 'on_completion', 'custom'],
+    retainer:         ['biweekly', 'monthly', 'quarterly'],
+    per_deliverable:  ['on_completion', 'custom'],
+};
+const BILLING_TYPE_DESC = {
+    fixed:             'Fees divided evenly across periods. Set date range and cycle.',
+    time_and_material: 'Invoices pull actual timesheet entries per period.',
+    hybrid:            'Combine fixed fees and T&M hours. Both appear as invoice line items.',
+    retainer:          'Recurring flat amount per billing cycle.',
+    per_deliverable:   'One invoice period per deliverable, triggered on completion.',
+};
 
 function onBillingTypeChange() {
     const type = document.getElementById('bs_billing_type')?.value;
-    const cycleCol = document.getElementById('bs_cycle_col');
-    // T&M doesn't need a cycle selector — duration-based
-    if (type === 'per_deliverable') {
-        if (cycleCol) cycleCol.style.opacity = '0.4';
-    } else {
-        if (cycleCol) cycleCol.style.opacity = '1';
+    const cycleSelect = document.getElementById('bs_billing_cycle');
+    const cycleCol  = document.getElementById('bs_cycle_col');
+    const cycleHint = document.getElementById('bs_cycle_hint');
+
+    if (!type || !cycleSelect) return;
+
+    const allowed = BILLING_TYPE_CYCLES[type] || [];
+    const isPerDel = type === 'per_deliverable';
+
+    // Show/hide cycle column
+    if (cycleCol) cycleCol.style.opacity = isPerDel ? '0.45' : '1';
+
+    // Filter cycle options to only valid ones for this billing type
+    Array.from(cycleSelect.options).forEach(opt => {
+        if (!opt.value) return; // skip blank option if any
+        opt.disabled = allowed.length > 0 && !allowed.includes(opt.value);
+        opt.style.display = (allowed.length > 0 && !allowed.includes(opt.value)) ? 'none' : '';
+    });
+
+    // Auto-select first valid option if current selection is now invalid
+    if (allowed.length > 0 && !allowed.includes(cycleSelect.value)) {
+        cycleSelect.value = allowed[0];
+    }
+
+    // Show contextual hint
+    if (cycleHint) {
+        cycleHint.textContent = BILLING_TYPE_DESC[type] || '';
     }
 }
 

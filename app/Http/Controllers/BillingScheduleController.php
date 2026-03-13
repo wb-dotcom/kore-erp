@@ -85,6 +85,7 @@ class BillingScheduleController extends Controller
                 'total_amount'        => $period['fees'] + $period['expenses'],
                 'status'              => 'draft',
                 'sort_order'          => $index + 1,
+                'notes'               => $period['notes'] ?? null,
             ]);
         }
 
@@ -363,26 +364,39 @@ class BillingScheduleController extends Controller
 
     private function buildFixedLineItems(Invoice $invoice, Proposal $proposal, BillingSchedulePeriod $period, string $billingType): void
     {
-        $typeLabel = match ($billingType) {
-            'fixed'           => 'Fixed Fee',
-            'retainer'        => 'Retainer Fee',
-            'per_deliverable' => 'Deliverable Fee',
-            'hybrid'          => 'Professional Services',
-            default           => 'Professional Services',
-        };
-
         $periodLabel = Carbon::parse($period->period_start)->format('M d')
                      . ' – '
                      . Carbon::parse($period->period_end)->format('M d, Y');
 
-        InvoiceItem::create([
-            'invoice_id'  => $invoice->id,
-            'description' => "{$typeLabel} — {$periodLabel}",
-            'quantity'    => 1,
-            'unit_price'  => $period->fees_amount,
-            'line_total'  => $period->fees_amount,
-            'sort_order'  => 0,
-        ]);
+        // Per-deliverable: use notes to identify which deliverable this period is for
+        if ($billingType === 'per_deliverable' && $period->notes) {
+            // notes stores the deliverable name for per_deliverable periods
+            InvoiceItem::create([
+                'invoice_id'  => $invoice->id,
+                'description' => "Deliverable: {$period->notes}",
+                'quantity'    => 1,
+                'unit_price'  => $period->fees_amount,
+                'line_total'  => $period->fees_amount,
+                'sort_order'  => 0,
+            ]);
+        } else {
+            $typeLabel = match ($billingType) {
+                'fixed'           => 'Fixed Fee',
+                'retainer'        => 'Retainer Fee',
+                'per_deliverable' => 'Deliverable Fee',
+                'hybrid'          => 'Professional Services',
+                default           => 'Professional Services',
+            };
+
+            InvoiceItem::create([
+                'invoice_id'  => $invoice->id,
+                'description' => "{$typeLabel} — {$periodLabel}",
+                'quantity'    => 1,
+                'unit_price'  => $period->fees_amount,
+                'line_total'  => $period->fees_amount,
+                'sort_order'  => 0,
+            ]);
+        }
 
         if ($period->expenses_amount > 0) {
             InvoiceItem::create([
@@ -405,6 +419,26 @@ class BillingScheduleController extends Controller
         $contractValue = $proposal->contract_value ?? $proposal->total_fee ?? 0;
         $expensesTotal = $schedule->include_expenses ? ($proposal->expenses_reserve ?? 0) : 0;
         $feesTotal     = $contractValue - ($proposal->expenses_reserve ?? 0);
+
+        // Per-deliverable: one period per project deliverable using deliverable fees
+        if ($schedule->billing_type === 'per_deliverable' && $proposal->project) {
+            $deliverables = $proposal->project->deliverables()->orderBy('sort_order')->get();
+            if ($deliverables->count() > 0) {
+                $periods = [];
+                foreach ($deliverables as $d) {
+                    $fee       = (float) ($d->deliverable_fee ?? 0);
+                    $dueDate   = $d->due_date ? Carbon::parse($d->due_date)->format('Y-m-d') : $end->format('Y-m-d');
+                    $periods[] = [
+                        'start'    => $start->format('Y-m-d'),
+                        'end'      => $dueDate,
+                        'fees'     => $fee,
+                        'expenses' => 0,
+                        'notes'    => $d->name,
+                    ];
+                }
+                return $periods;
+            }
+        }
 
         $periods = match ($schedule->billing_cycle) {
             'biweekly'      => $this->splitByInterval($start, $end, '2 weeks'),

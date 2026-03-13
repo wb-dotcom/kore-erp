@@ -166,11 +166,43 @@ class Proposal extends Model
 
     public function isTimeAndMaterial(): bool
     {
-        return in_array($this->billing_type, ['time_and_material', 'hybrid']);
+        return $this->billing_type === 'time_and_material';
     }
 
     public function isFixedFee(): bool
     {
         return $this->billing_type === 'fixed';
+    }
+
+    public function isHybrid(): bool
+    {
+        return $this->billing_type === 'hybrid';
+    }
+
+    public function isRetainer(): bool
+    {
+        return $this->billing_type === 'retainer';
+    }
+
+    public function isPerDeliverable(): bool
+    {
+        return $this->billing_type === 'per_deliverable';
+    }
+
+    /** Returns billing context flags used in views and controllers. */
+    public function getBillingContextAttribute(): array
+    {
+        $type = $this->billing_type ?? 'fixed';
+        return [
+            'type'               => $type,
+            'isFixed'            => $type === 'fixed',
+            'isTm'               => $type === 'time_and_material',
+            'isHybrid'           => $type === 'hybrid',
+            'isRetainer'         => $type === 'retainer',
+            'isPerDeliverable'   => $type === 'per_deliverable',
+            'isHourly'           => in_array($type, ['time_and_material', 'hybrid']),
+            'showDeliverableFee' => in_array($type, ['fixed', 'per_deliverable', 'hybrid']),
+            'showRate'           => in_array($type, ['time_and_material', 'hybrid']),
+        ];
     }
 }
