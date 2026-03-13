@@ -224,6 +224,7 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::post('/templates/activities/{activity}/tasks',               [ActivityTemplateAdminController::class, 'storeTask'])->name('templates.tasks.store');
         Route::put('/templates/tasks/{task}',                               [ActivityTemplateAdminController::class, 'updateTask'])->name('templates.tasks.update');
         Route::delete('/templates/tasks/{task}',                            [ActivityTemplateAdminController::class, 'destroyTask'])->name('templates.tasks.destroy');
+        Route::post('/templates/deliverables/{deliverable}/tasks',          [ActivityTemplateAdminController::class, 'storeDeliverableTask'])->name('templates.deliverables.tasks.store');
     });
 
     // User profile

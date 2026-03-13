@@ -25,13 +25,15 @@ class ActivityTemplateAdminController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'name'         => ['required', 'string', 'max:255'],
-            'description'  => ['nullable', 'string'],
-            'work_type_id' => ['nullable', 'exists:work_types,id'],
+            'name'          => ['required', 'string', 'max:255'],
+            'description'   => ['nullable', 'string'],
+            'work_type_id'  => ['nullable', 'exists:work_types,id'],
+            'billing_type'  => ['nullable', 'in:fixed,time_and_material,hybrid,retainer,per_deliverable'],
+            'billing_cycle' => ['nullable', 'in:biweekly,monthly,quarterly,on_completion,custom'],
         ]);
 
-        $data['created_by']           = auth()->id();
-        $data['total_budgeted_hours']  = 0;
+        $data['created_by']          = auth()->id();
+        $data['total_budgeted_hours'] = 0;
 
         ActivityTemplate::create($data);
 
@@ -40,7 +42,11 @@ class ActivityTemplateAdminController extends Controller
 
     public function show(ActivityTemplate $activityTemplate)
     {
-        $activityTemplate->load('deliverables.activities.tasks', 'workType');
+        $activityTemplate->load([
+            'deliverables.activities.tasks',
+            'deliverables.directTasks',
+            'workType',
+        ]);
         $workTypes = WorkType::orderBy('name')->get();
 
         return view('admin.activity-templates.show', compact('activityTemplate', 'workTypes'));
@@ -49,9 +55,11 @@ class ActivityTemplateAdminController extends Controller
     public function update(Request $request, ActivityTemplate $activityTemplate): RedirectResponse
     {
         $data = $request->validate([
-            'name'         => ['required', 'string', 'max:255'],
-            'description'  => ['nullable', 'string'],
-            'work_type_id' => ['nullable', 'exists:work_types,id'],
+            'name'          => ['required', 'string', 'max:255'],
+            'description'   => ['nullable', 'string'],
+            'work_type_id'  => ['nullable', 'exists:work_types,id'],
+            'billing_type'  => ['nullable', 'in:fixed,time_and_material,hybrid,retainer,per_deliverable'],
+            'billing_cycle' => ['nullable', 'in:biweekly,monthly,quarterly,on_completion,custom'],
         ]);
 
         $activityTemplate->update($data);
@@ -72,8 +80,10 @@ class ActivityTemplateAdminController extends Controller
     public function storeDeliverable(Request $request, ActivityTemplate $activityTemplate): RedirectResponse
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name'                      => ['required', 'string', 'max:255'],
+            'description'               => ['nullable', 'string'],
+            'max_hours'                 => ['nullable', 'numeric', 'min:0'],
+            'depends_on_deliverable_id' => ['nullable', 'exists:activity_template_deliverables,id'],
         ]);
 
         $data['sort_order'] = $activityTemplate->deliverables()->max('sort_order') + 1;
@@ -85,8 +95,10 @@ class ActivityTemplateAdminController extends Controller
     public function updateDeliverable(Request $request, ActivityTemplateDeliverable $deliverable): RedirectResponse
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name'                      => ['required', 'string', 'max:255'],
+            'description'               => ['nullable', 'string'],
+            'max_hours'                 => ['nullable', 'numeric', 'min:0'],
+            'depends_on_deliverable_id' => ['nullable', 'exists:activity_template_deliverables,id'],
         ]);
 
         $deliverable->update($data);
@@ -106,38 +118,40 @@ class ActivityTemplateAdminController extends Controller
     public function storeActivity(Request $request, ActivityTemplateDeliverable $deliverable): RedirectResponse
     {
         $data = $request->validate([
-            'name'                => ['required', 'string', 'max:255'],
-            'description'         => ['nullable', 'string'],
-            'relative_start_day'  => ['nullable', 'integer', 'min:0'],
-            'relative_end_day'    => ['nullable', 'integer', 'min:0'],
-            'assigned_role'       => ['nullable', 'string', 'max:100'],
-            'budgeted_hours'      => ['nullable', 'numeric', 'min:0'],
+            'name'                   => ['required', 'string', 'max:255'],
+            'description'            => ['nullable', 'string'],
+            'relative_start_day'     => ['nullable', 'integer', 'min:0'],
+            'relative_end_day'       => ['nullable', 'integer', 'min:0'],
+            'assigned_role'          => ['nullable', 'string', 'max:100'],
+            'budgeted_hours'         => ['nullable', 'numeric', 'min:0'],
+            'depends_on_activity_id' => ['nullable', 'exists:activity_template_activities,id'],
         ]);
 
-        $data['sort_order']      = $deliverable->activities()->max('sort_order') + 1;
-        $data['budgeted_hours']  = $data['budgeted_hours'] ?? 0;
+        $data['sort_order']     = $deliverable->activities()->max('sort_order') + 1;
+        $data['budgeted_hours'] = $data['budgeted_hours'] ?? 0;
 
         $deliverable->activities()->create($data);
         $deliverable->template->recalculateHours();
 
-        return back()->with('success', 'Activity added.');
+        return back()->with('success', 'Milestone added.');
     }
 
     public function updateActivity(Request $request, ActivityTemplateActivity $activity): RedirectResponse
     {
         $data = $request->validate([
-            'name'                => ['required', 'string', 'max:255'],
-            'description'         => ['nullable', 'string'],
-            'relative_start_day'  => ['nullable', 'integer', 'min:0'],
-            'relative_end_day'    => ['nullable', 'integer', 'min:0'],
-            'assigned_role'       => ['nullable', 'string', 'max:100'],
-            'budgeted_hours'      => ['nullable', 'numeric', 'min:0'],
+            'name'                   => ['required', 'string', 'max:255'],
+            'description'            => ['nullable', 'string'],
+            'relative_start_day'     => ['nullable', 'integer', 'min:0'],
+            'relative_end_day'       => ['nullable', 'integer', 'min:0'],
+            'assigned_role'          => ['nullable', 'string', 'max:100'],
+            'budgeted_hours'         => ['nullable', 'numeric', 'min:0'],
+            'depends_on_activity_id' => ['nullable', 'exists:activity_template_activities,id'],
         ]);
 
         $activity->update($data);
         $activity->deliverable->template->recalculateHours();
 
-        return back()->with('success', 'Activity updated.');
+        return back()->with('success', 'Milestone updated.');
     }
 
     public function destroyActivity(ActivityTemplateActivity $activity): RedirectResponse
@@ -146,22 +160,23 @@ class ActivityTemplateAdminController extends Controller
         $activity->delete();
         $template->recalculateHours();
 
-        return back()->with('success', 'Activity removed.');
+        return back()->with('success', 'Milestone removed.');
     }
 
-    // ── Tasks ─────────────────────────────────────────────────────────────────
+    // ── Tasks under a milestone ───────────────────────────────────────────────
 
     public function storeTask(Request $request, ActivityTemplateActivity $activity): RedirectResponse
     {
         $data = $request->validate([
-            'name'             => ['required', 'string', 'max:255'],
-            'description'      => ['nullable', 'string'],
-            'relative_due_day' => ['nullable', 'integer', 'min:0'],
-            'assigned_role'    => ['nullable', 'string', 'max:100'],
-            'estimated_hours'  => ['nullable', 'numeric', 'min:0'],
+            'name'              => ['required', 'string', 'max:255'],
+            'description'       => ['nullable', 'string'],
+            'relative_due_day'  => ['nullable', 'integer', 'min:0'],
+            'assigned_role'     => ['nullable', 'string', 'max:100'],
+            'estimated_hours'   => ['nullable', 'numeric', 'min:0'],
+            'depends_on_task_id' => ['nullable', 'exists:activity_template_tasks,id'],
         ]);
 
-        $data['sort_order']     = $activity->tasks()->max('sort_order') + 1;
+        $data['sort_order']      = $activity->tasks()->max('sort_order') + 1;
         $data['estimated_hours'] = $data['estimated_hours'] ?? 0;
 
         $activity->tasks()->create($data);
@@ -173,25 +188,62 @@ class ActivityTemplateAdminController extends Controller
     public function updateTask(Request $request, ActivityTemplateTask $task): RedirectResponse
     {
         $data = $request->validate([
-            'name'             => ['required', 'string', 'max:255'],
-            'description'      => ['nullable', 'string'],
-            'relative_due_day' => ['nullable', 'integer', 'min:0'],
-            'assigned_role'    => ['nullable', 'string', 'max:100'],
-            'estimated_hours'  => ['nullable', 'numeric', 'min:0'],
+            'name'               => ['required', 'string', 'max:255'],
+            'description'        => ['nullable', 'string'],
+            'relative_due_day'   => ['nullable', 'integer', 'min:0'],
+            'assigned_role'      => ['nullable', 'string', 'max:100'],
+            'estimated_hours'    => ['nullable', 'numeric', 'min:0'],
+            'depends_on_task_id' => ['nullable', 'exists:activity_template_tasks,id'],
         ]);
 
         $task->update($data);
-        $task->activity->deliverable->template->recalculateHours();
+
+        // Recalculate from whichever parent owns this task
+        if ($task->activity_template_activity_id) {
+            $task->activity->deliverable->template->recalculateHours();
+        } elseif ($task->activity_template_deliverable_id) {
+            $task->deliverable->template->recalculateHours();
+        }
 
         return back()->with('success', 'Task updated.');
     }
 
     public function destroyTask(ActivityTemplateTask $task): RedirectResponse
     {
-        $template = $task->activity->deliverable->template;
+        if ($task->activity_template_activity_id) {
+            $template = $task->activity->deliverable->template;
+        } else {
+            $template = $task->deliverable->template;
+        }
+
         $task->delete();
         $template->recalculateHours();
 
         return back()->with('success', 'Task removed.');
+    }
+
+    // ── Direct tasks under a deliverable (no milestone) ──────────────────────
+
+    /** POST /admin/templates/deliverables/{deliverable}/tasks */
+    public function storeDeliverableTask(Request $request, ActivityTemplateDeliverable $deliverable): RedirectResponse
+    {
+        $data = $request->validate([
+            'name'               => ['required', 'string', 'max:255'],
+            'description'        => ['nullable', 'string'],
+            'relative_due_day'   => ['nullable', 'integer', 'min:0'],
+            'assigned_role'      => ['nullable', 'string', 'max:100'],
+            'estimated_hours'    => ['nullable', 'numeric', 'min:0'],
+            'depends_on_task_id' => ['nullable', 'exists:activity_template_tasks,id'],
+        ]);
+
+        $data['sort_order']                       = $deliverable->directTasks()->max('sort_order') + 1;
+        $data['estimated_hours']                  = $data['estimated_hours'] ?? 0;
+        $data['activity_template_deliverable_id'] = $deliverable->id;
+        // activity_template_activity_id stays null — task is directly under deliverable
+
+        ActivityTemplateTask::create($data);
+        $deliverable->template->recalculateHours();
+
+        return back()->with('success', 'Task added directly to deliverable.');
     }
 }

@@ -294,17 +294,29 @@ class ProposalDeliverableController extends Controller
             'template_id' => ['required', 'exists:activity_templates,id'],
         ]);
 
-        $template = ActivityTemplate::with('deliverables.activities.tasks')->find($data['template_id']);
+        $template = ActivityTemplate::with([
+            'deliverables.activities.tasks',
+            'deliverables.directTasks',
+        ])->find($data['template_id']);
 
         $sortOffset = $proposal->deliverables()->max('sort_order') + 1;
 
+        // Maps template IDs → newly created proposal IDs for dependency remapping
+        $deliverableMap = []; // tpl deliverable id → proposal deliverable id
+        $activityMap    = []; // tpl activity id    → proposal activity id
+        $taskMap        = []; // tpl task id        → proposal task id
+
+        // ── Pass 1: create all deliverables, activities, tasks ───────────────
         foreach ($template->deliverables as $tDeliv) {
             $deliverable = ProposalDeliverable::create([
                 'proposal_id' => $proposal->id,
                 'name'        => $tDeliv->name,
                 'description' => $tDeliv->description,
                 'sort_order'  => $sortOffset++,
+                'max_hours'   => $tDeliv->max_hours,
+                // depends_on_deliverable_id remapped in pass 2
             ]);
+            $deliverableMap[$tDeliv->id] = $deliverable->id;
 
             foreach ($tDeliv->activities as $tAct) {
                 $activity = ProposalActivity::create([
@@ -316,18 +328,67 @@ class ProposalDeliverableController extends Controller
                     'assigned_role'           => $tAct->assigned_role,
                     'budgeted_hours'          => $tAct->budgeted_hours,
                     'sort_order'              => $tAct->sort_order,
+                    // depends_on_activity_id remapped in pass 2
                 ]);
+                $activityMap[$tAct->id] = $activity->id;
 
                 foreach ($tAct->tasks as $tTask) {
-                    ProposalTask::create([
-                        'proposal_activity_id' => $activity->id,
-                        'name'                 => $tTask->name,
-                        'description'          => $tTask->description,
-                        'relative_due_day'     => $tTask->relative_due_day,
-                        'assigned_role'        => $tTask->assigned_role,
-                        'estimated_hours'      => $tTask->estimated_hours,
-                        'sort_order'           => $tTask->sort_order,
+                    $task = ProposalTask::create([
+                        'proposal_activity_id'   => $activity->id,
+                        'proposal_deliverable_id' => null,
+                        'name'                   => $tTask->name,
+                        'description'            => $tTask->description,
+                        'relative_due_day'       => $tTask->relative_due_day,
+                        'assigned_role'          => $tTask->assigned_role,
+                        'estimated_hours'        => $tTask->estimated_hours,
+                        'sort_order'             => $tTask->sort_order,
+                        // depends_on_task_id remapped in pass 2
                     ]);
+                    $taskMap[$tTask->id] = $task->id;
+                }
+            }
+
+            // Direct tasks (no milestone)
+            foreach ($tDeliv->directTasks as $tTask) {
+                $task = ProposalTask::create([
+                    'proposal_activity_id'    => null,
+                    'proposal_deliverable_id' => $deliverable->id,
+                    'name'                   => $tTask->name,
+                    'description'            => $tTask->description,
+                    'relative_due_day'       => $tTask->relative_due_day,
+                    'assigned_role'          => $tTask->assigned_role,
+                    'estimated_hours'        => $tTask->estimated_hours,
+                    'sort_order'             => $tTask->sort_order,
+                ]);
+                $taskMap[$tTask->id] = $task->id;
+            }
+        }
+
+        // ── Pass 2: remap dependency IDs ─────────────────────────────────────
+        foreach ($template->deliverables as $tDeliv) {
+            if ($tDeliv->depends_on_deliverable_id && isset($deliverableMap[$tDeliv->depends_on_deliverable_id])) {
+                ProposalDeliverable::where('id', $deliverableMap[$tDeliv->id])
+                    ->update(['depends_on_deliverable_id' => $deliverableMap[$tDeliv->depends_on_deliverable_id]]);
+            }
+
+            foreach ($tDeliv->activities as $tAct) {
+                if ($tAct->depends_on_activity_id && isset($activityMap[$tAct->depends_on_activity_id])) {
+                    ProposalActivity::where('id', $activityMap[$tAct->id])
+                        ->update(['depends_on_activity_id' => $activityMap[$tAct->depends_on_activity_id]]);
+                }
+
+                foreach ($tAct->tasks as $tTask) {
+                    if ($tTask->depends_on_task_id && isset($taskMap[$tTask->depends_on_task_id])) {
+                        ProposalTask::where('id', $taskMap[$tTask->id])
+                            ->update(['depends_on_task_id' => $taskMap[$tTask->depends_on_task_id]]);
+                    }
+                }
+            }
+
+            foreach ($tDeliv->directTasks as $tTask) {
+                if ($tTask->depends_on_task_id && isset($taskMap[$tTask->depends_on_task_id])) {
+                    ProposalTask::where('id', $taskMap[$tTask->id])
+                        ->update(['depends_on_task_id' => $taskMap[$tTask->depends_on_task_id]]);
                 }
             }
         }

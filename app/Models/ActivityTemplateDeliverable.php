@@ -13,6 +13,12 @@ class ActivityTemplateDeliverable extends Model
         'name',
         'description',
         'sort_order',
+        'max_hours',
+        'depends_on_deliverable_id',
+    ];
+
+    protected $casts = [
+        'max_hours' => 'float',
     ];
 
     public function template(): BelongsTo
@@ -24,5 +30,27 @@ class ActivityTemplateDeliverable extends Model
     {
         return $this->hasMany(ActivityTemplateActivity::class, 'activity_template_deliverable_id')
             ->orderBy('sort_order');
+    }
+
+    /** Tasks that live directly under this deliverable (no milestone grouping). */
+    public function directTasks(): HasMany
+    {
+        return $this->hasMany(ActivityTemplateTask::class, 'activity_template_deliverable_id')
+            ->whereNull('activity_template_activity_id')
+            ->orderBy('sort_order');
+    }
+
+    /** The deliverable this one depends on (must complete before this one starts). */
+    public function dependsOn(): BelongsTo
+    {
+        return $this->belongsTo(ActivityTemplateDeliverable::class, 'depends_on_deliverable_id');
+    }
+
+    /** Total hours across all milestones + direct tasks. */
+    public function getTotalHoursAttribute(): float
+    {
+        $actHours  = $this->activities->sum('budgeted_hours');
+        $taskHours = $this->directTasks->sum('estimated_hours');
+        return $actHours + $taskHours;
     }
 }

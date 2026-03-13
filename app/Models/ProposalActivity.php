@@ -17,6 +17,7 @@ class ProposalActivity extends Model
         'assigned_role',
         'budgeted_hours',
         'sort_order',
+        'depends_on_activity_id',
     ];
 
     protected $casts = [
@@ -31,6 +32,12 @@ class ProposalActivity extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(ProposalTask::class)->orderBy('sort_order');
+    }
+
+    /** The milestone this one depends on. */
+    public function dependsOn(): BelongsTo
+    {
+        return $this->belongsTo(ProposalActivity::class, 'depends_on_activity_id');
     }
 
     public function getTotalEstimatedHoursAttribute(): float

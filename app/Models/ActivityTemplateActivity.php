@@ -17,6 +17,7 @@ class ActivityTemplateActivity extends Model
         'assigned_role',
         'budgeted_hours',
         'sort_order',
+        'depends_on_activity_id',
     ];
 
     protected $casts = [
@@ -32,5 +33,11 @@ class ActivityTemplateActivity extends Model
     {
         return $this->hasMany(ActivityTemplateTask::class, 'activity_template_activity_id')
             ->orderBy('sort_order');
+    }
+
+    /** The milestone this one depends on (must complete before this one starts). */
+    public function dependsOn(): BelongsTo
+    {
+        return $this->belongsTo(ActivityTemplateActivity::class, 'depends_on_activity_id');
     }
 }

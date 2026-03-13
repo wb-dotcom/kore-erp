@@ -13,6 +13,12 @@ class ProposalDeliverable extends Model
         'name',
         'description',
         'sort_order',
+        'max_hours',
+        'depends_on_deliverable_id',
+    ];
+
+    protected $casts = [
+        'max_hours' => 'float',
     ];
 
     public function proposal(): BelongsTo
@@ -25,8 +31,24 @@ class ProposalDeliverable extends Model
         return $this->hasMany(ProposalActivity::class)->orderBy('sort_order');
     }
 
+    /** Tasks directly under this deliverable (no milestone). */
+    public function directTasks(): HasMany
+    {
+        return $this->hasMany(ProposalTask::class, 'proposal_deliverable_id')
+            ->whereNull('proposal_activity_id')
+            ->orderBy('sort_order');
+    }
+
+    /** The deliverable this one must wait for. */
+    public function dependsOn(): BelongsTo
+    {
+        return $this->belongsTo(ProposalDeliverable::class, 'depends_on_deliverable_id');
+    }
+
     public function getTotalBudgetedHoursAttribute(): float
     {
-        return (float) $this->activities()->sum('budgeted_hours');
+        $actHours  = (float) $this->activities()->sum('budgeted_hours');
+        $taskHours = (float) $this->directTasks()->sum('estimated_hours');
+        return $actHours + $taskHours;
     }
 }
