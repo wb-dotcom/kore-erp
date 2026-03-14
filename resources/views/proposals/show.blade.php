@@ -794,13 +794,22 @@
                     <div>Fees</div><div>Expenses</div><div>Total</div>
                     <div>Status</div><div>Invoice #</div><div>Actions</div>
                 </div>
+                @php $needsCompute = !in_array($billingType, ['fixed', 'retainer']); @endphp
                 @foreach($bs->periods->sortBy('sort_order') as $period)
-                <div class="billing-period-row">
+                <div class="billing-period-row" id="bpr-{{ $period->id }}">
                     <div>{{ $period->period_start->format('M d, Y') }}</div>
                     <div>{{ $period->period_end->format('M d, Y') }}</div>
-                    <div>${{ number_format($period->fees_amount, 2) }}</div>
+                    <div>
+                        <span class="period-fee-val">${{ number_format($period->fees_amount, 2) }}</span>
+                        @if($needsCompute && !$period->is_locked)
+                        <button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb; vertical-align:middle;"
+                            onclick="openPeriodBreakdown({{ $period->id }})" title="Compute from actual data">
+                            <i class="bi bi-calculator"></i>
+                        </button>
+                        @endif
+                    </div>
                     <div>${{ number_format($period->expenses_amount, 2) }}</div>
-                    <div><strong>${{ number_format($period->total_amount, 2) }}</strong></div>
+                    <div><strong class="period-total-val">${{ number_format($period->total_amount, 2) }}</strong></div>
                     <div>
                         <span class="badge bg-{{ $statusColors[$period->status] ?? 'secondary' }}">
                             {{ $period->is_locked ? '🔒 ' : '' }}{{ $period->status }}
@@ -938,6 +947,28 @@
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" id="saveLineItemBtn">
                     <i class="bi bi-plus-lg me-1"></i> Add Line Item
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Period Fee Breakdown Modal --}}
+<div class="modal fade" id="periodBreakdownModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pbm-title">Fee Breakdown</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="pbm-body" style="font-size:0.82rem;">
+                <div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="pbm-apply"
+                    data-period-id="" data-fixed-component="0" onclick="applyPeriodFees()">
+                    <i class="bi bi-check-lg me-1"></i> Apply Computed Fees
                 </button>
             </div>
         </div>
@@ -1315,27 +1346,37 @@ function renderBillingPeriods(periods) {
         container.innerHTML = '<p class="text-muted text-center py-3" style="font-size:0.83rem;">No periods generated.</p>';
         return;
     }
-    const statusColors = { draft:'secondary', approved:'info', invoiced:'primary', paid:'success', overdue:'danger' };
+    const statusColors  = { draft:'secondary', approved:'info', invoiced:'primary', paid:'success', overdue:'danger' };
+    const billingType   = document.getElementById('bs_billing_type')?.value || 'fixed';
+    const needsCompute  = !['fixed', 'retainer'].includes(billingType);
+
     let html = `<div class="billing-period-row header">
         <div>Period Start</div><div>Period End</div>
         <div>Fees</div><div>Expenses</div><div>Total</div>
         <div>Status</div><div>Invoice #</div><div></div>
     </div>`;
     periods.forEach(p => {
-        const color = statusColors[p.status] || 'secondary';
+        const color  = statusColors[p.status] || 'secondary';
         const locked = p.is_locked ? '🔒 ' : '';
+
+        const computeBtn = (needsCompute && !p.is_locked)
+            ? `<button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb; vertical-align:middle;"
+                   onclick="openPeriodBreakdown(${p.id})" title="Compute from actual data"><i class="bi bi-calculator"></i></button>`
+            : '';
+
         let actionBtn = '';
         if (p.invoice_id && p.invoice_url) {
             actionBtn = `<a href="${p.invoice_url}" class="btn btn-outline-success" style="font-size:0.68rem; padding:2px 7px;"><i class="bi bi-eye me-1"></i>${esc(p.invoice_number)}</a>`;
         } else {
             actionBtn = `<button class="btn btn-outline-primary" style="font-size:0.68rem; padding:2px 7px;" onclick="generateInvoiceFromPeriod(${p.id}, this)"><i class="bi bi-receipt me-1"></i>Invoice</button>`;
         }
-        html += `<div class="billing-period-row">
+
+        html += `<div class="billing-period-row" id="bpr-${p.id}">
             <div>${p.period_start}</div>
             <div>${p.period_end}</div>
-            <div>$${fmtMoney(p.fees_amount)}</div>
+            <div><span class="period-fee-val">$${fmtMoney(p.fees_amount)}</span>${computeBtn}</div>
             <div>$${fmtMoney(p.expenses_amount)}</div>
-            <div><strong>$${fmtMoney(p.total_amount)}</strong></div>
+            <div><strong class="period-total-val">$${fmtMoney(p.total_amount)}</strong></div>
             <div><span class="badge bg-${color}">${locked}${p.status}</span></div>
             <div style="font-size:0.75rem; color:#6b7280;">${p.invoice_number ?? '—'}</div>
             <div class="d-flex align-items-center gap-1">
@@ -1345,6 +1386,153 @@ function renderBillingPeriods(periods) {
         </div>`;
     });
     container.innerHTML = html;
+}
+
+// ── Period Fee Breakdown & Compute ────────────────────────────────────────────
+
+async function openPeriodBreakdown(periodId) {
+    const modal = new bootstrap.Modal(document.getElementById('periodBreakdownModal'));
+    const body  = document.getElementById('pbm-body');
+    const title = document.getElementById('pbm-title');
+    const applyBtn = document.getElementById('pbm-apply');
+
+    body.innerHTML = '<div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading…</div>';
+    applyBtn.dataset.periodId = periodId;
+    applyBtn.dataset.fixedComponent = 0;
+    modal.show();
+
+    try {
+        const res  = await fetch(BASE_URL + '/billing-schedule/periods/' + periodId + '/breakdown');
+        const data = await res.json();
+
+        title.textContent = 'Fee Breakdown — ' + data.period_start + ' to ' + data.period_end;
+
+        let html = '';
+        const type = data.billing_type;
+
+        // ── Time & Material / Hybrid: timesheet hours ──────────────────────────
+        if (data.timesheet) {
+            const ts = data.timesheet;
+            html += `<h6 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:#6b7280; letter-spacing:.5px;">Billable Hours</h6>`;
+
+            if (!ts.has_project) {
+                html += `<p class="text-muted" style="font-size:0.8rem;">No project linked to this proposal yet.</p>`;
+            } else if (ts.rows.length === 0) {
+                html += `<p class="text-warning" style="font-size:0.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>No billable timesheet entries recorded for this period.</p>`;
+            } else {
+                html += `<table class="table table-sm mb-2" style="font-size:0.78rem;">
+                    <thead class="table-light"><tr><th>Staff</th><th>Role</th><th class="text-end">Hours</th><th class="text-end">Rate</th><th class="text-end">Subtotal</th></tr></thead><tbody>`;
+                ts.rows.forEach(r => {
+                    html += `<tr><td>${esc(r.user_name)}</td><td>${esc(r.role)}</td>
+                        <td class="text-end">${r.hours.toFixed(2)}</td>
+                        <td class="text-end">$${fmtMoney(r.rate)}</td>
+                        <td class="text-end fw-600">$${fmtMoney(r.subtotal)}</td></tr>`;
+                });
+                html += `</tbody><tfoot><tr class="table-light">
+                    <td colspan="2" class="fw-600">Total Billable Hours</td>
+                    <td class="text-end fw-600">${ts.total_hours.toFixed(2)} hrs</td>
+                    <td></td>
+                    <td class="text-end fw-600 text-primary">$${fmtMoney(ts.total_fees)}</td>
+                </tr></tfoot></table>`;
+            }
+
+            // Hybrid: fixed component input
+            if (type === 'hybrid') {
+                html += `<div class="mb-3">
+                    <label class="form-label" style="font-size:0.75rem; font-weight:600;">Fixed Component (additional flat fee)</label>
+                    <div class="input-group input-group-sm" style="max-width:180px;">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="pbm-fixed" class="form-control" min="0" step="0.01" placeholder="0.00"
+                            oninput="document.getElementById('pbm-apply').dataset.fixedComponent=this.value||0">
+                    </div>
+                </div>`;
+            }
+        }
+
+        // ── Per Deliverable / Hybrid: deliverable status ───────────────────────
+        if (data.deliverables) {
+            const dl = data.deliverables;
+            html += `<h6 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:#6b7280; letter-spacing:.5px; margin-top:12px;">Deliverables</h6>`;
+
+            if (!dl.has_project) {
+                html += `<p class="text-muted" style="font-size:0.8rem;">No project linked.</p>`;
+            } else if (dl.rows.length === 0) {
+                html += `<p class="text-warning" style="font-size:0.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>No deliverables found for this period.</p>`;
+            } else {
+                const statusBadge = { pending:'secondary', ready_to_bill:'warning', invoiced:'primary', paid:'success' };
+                html += `<table class="table table-sm mb-2" style="font-size:0.78rem;">
+                    <thead class="table-light"><tr><th>Deliverable</th><th>Status</th><th class="text-end">Fee</th></tr></thead><tbody>`;
+                dl.rows.forEach(r => {
+                    const badge = statusBadge[r.billing_status] || 'secondary';
+                    const readyCheck = r.ready ? '<i class="bi bi-check-circle-fill text-success me-1"></i>' : '';
+                    html += `<tr>
+                        <td>${readyCheck}${esc(r.name)}</td>
+                        <td><span class="badge bg-${badge}">${esc(r.billing_status.replace(/_/g,' '))}</span></td>
+                        <td class="text-end">${r.ready ? '$' + fmtMoney(r.fee) : '<span class="text-muted">—</span>'}</td>
+                    </tr>`;
+                });
+                html += `</tbody><tfoot><tr class="table-light">
+                    <td colspan="2" class="fw-600">Ready to Bill</td>
+                    <td class="text-end fw-600 text-primary">$${fmtMoney(dl.total_fees)}</td>
+                </tr></tfoot></table>`;
+
+                if (dl.rows.every(r => !r.ready)) {
+                    html += `<p class="text-muted" style="font-size:0.77rem;"><i class="bi bi-info-circle me-1"></i>Mark deliverables as <strong>Ready to Bill</strong> in the project to include them here.</p>`;
+                }
+            }
+        }
+
+        // Total preview
+        const tsTotal = data.timesheet?.total_fees ?? 0;
+        const dlTotal = data.deliverables?.total_fees ?? 0;
+        const preview = tsTotal + dlTotal;
+        html += `<div class="p-2 mt-2 rounded" style="background:#eff6ff; font-size:0.82rem;">
+            <i class="bi bi-calculator me-1"></i>Computed fees will be set to: <strong id="pbm-preview">$${fmtMoney(preview)}</strong>
+            <span class="text-muted ms-1" style="font-size:0.72rem;">(plus any fixed component for hybrid)</span>
+        </div>`;
+
+        body.innerHTML = html;
+    } catch (e) {
+        body.innerHTML = '<p class="text-danger">Failed to load breakdown.</p>';
+    }
+}
+
+async function applyPeriodFees() {
+    const btn      = document.getElementById('pbm-apply');
+    const periodId = btn.dataset.periodId;
+    const fixed    = parseFloat(btn.dataset.fixedComponent) || 0;
+    const orig     = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Computing…';
+
+    try {
+        const res  = await fetch(BASE_URL + '/billing-schedule/periods/' + periodId + '/compute-fees', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+            body:    JSON.stringify({ fixed_component: fixed }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            // Update the row in place
+            const row = document.getElementById('bpr-' + periodId);
+            if (row) {
+                const feeEl   = row.querySelector('.period-fee-val');
+                const totalEl = row.querySelector('.period-total-val');
+                if (feeEl)   feeEl.textContent   = '$' + fmtMoney(data.period.fees_amount);
+                if (totalEl) totalEl.textContent  = '$' + fmtMoney(data.period.total_amount);
+            }
+            bootstrap.Modal.getInstance(document.getElementById('periodBreakdownModal')).hide();
+        } else {
+            alert(data.message || 'Failed to compute fees.');
+        }
+    } catch (e) {
+        alert('Network error.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
 }
 
 async function generateInvoiceFromPeriod(periodId, btn) {

@@ -285,6 +285,209 @@ class BillingScheduleController extends Controller
         return response()->json(['message' => 'Period deleted.']);
     }
 
+    // ── Period Compute & Breakdown ─────────────────────────────────────────────
+
+    /**
+     * GET /proposals/{proposal}/billing-schedule/periods/{period}/breakdown
+     * Returns the hours/deliverable data available for computing this period's fees.
+     */
+    public function periodBreakdown(Proposal $proposal, BillingSchedulePeriod $period): JsonResponse
+    {
+        $schedule    = $period->billingSchedule;
+        $billingType = $schedule->billing_type;
+
+        $result = [
+            'period_id'    => $period->id,
+            'billing_type' => $billingType,
+            'period_start' => Carbon::parse($period->period_start)->toDateString(),
+            'period_end'   => Carbon::parse($period->period_end)->toDateString(),
+            'current_fees' => (float) $period->fees_amount,
+        ];
+
+        if (in_array($billingType, ['time_and_material', 'hybrid'])) {
+            $result['timesheet'] = $this->getTimesheetBreakdown($proposal, $period);
+        }
+
+        if (in_array($billingType, ['per_deliverable', 'hybrid'])) {
+            $result['deliverables'] = $this->getDeliverableBreakdown($proposal, $period);
+        }
+
+        return response()->json($result);
+    }
+
+    /**
+     * POST /proposals/{proposal}/billing-schedule/periods/{period}/compute-fees
+     * Calculates fees from actual timesheet hours and/or completed deliverables.
+     */
+    public function computePeriodFees(Request $request, Proposal $proposal, BillingSchedulePeriod $period): JsonResponse
+    {
+        if ($period->is_locked) {
+            return response()->json(['message' => 'Period is locked and cannot be modified.'], 422);
+        }
+
+        $schedule    = $period->billingSchedule;
+        $billingType = $schedule->billing_type;
+
+        $fees = 0.0;
+
+        if (in_array($billingType, ['time_and_material', 'hybrid'])) {
+            $fees += $this->sumTimesheetFees($proposal, $period);
+        }
+
+        if (in_array($billingType, ['per_deliverable', 'hybrid'])) {
+            $fees += $this->sumDeliverableFees($proposal, $period);
+        }
+
+        // For hybrid the user can also supply a fixed component on top of T&M
+        if ($billingType === 'hybrid') {
+            $fees += (float) ($request->input('fixed_component', 0));
+        }
+
+        $fees     = round($fees, 2);
+        $expenses = (float) $period->expenses_amount;
+
+        $period->update([
+            'fees_amount'  => $fees,
+            'total_amount' => $fees + $expenses,
+        ]);
+
+        return response()->json([
+            'message' => 'Fees computed successfully.',
+            'period'  => $period->fresh(),
+        ]);
+    }
+
+    // ── Private: Fee Computation Helpers ──────────────────────────────────────
+
+    private function sumTimesheetFees(Proposal $proposal, BillingSchedulePeriod $period): float
+    {
+        $project = $proposal->project;
+        if (! $project) return 0.0;
+
+        $start   = Carbon::parse($period->period_start)->toDateString();
+        $end     = Carbon::parse($period->period_end)->toDateString();
+
+        $entries = TimesheetEntry::with(['timesheet.user'])
+            ->where('project_id', $project->id)
+            ->where('entry_type', 'billable')
+            ->whereBetween('entry_date', [$start, $end])
+            ->get();
+
+        $total = 0.0;
+        foreach ($entries as $entry) {
+            $user  = $entry->timesheet->user;
+            $rate  = ProposalRateSchedule::resolveRateForUser($user, $proposal);
+            $total += $entry->hours * $rate;
+        }
+
+        return round($total, 2);
+    }
+
+    private function sumDeliverableFees(Proposal $proposal, BillingSchedulePeriod $period): float
+    {
+        $project = $proposal->project;
+        if (! $project) return 0.0;
+
+        // Per-deliverable periods store the deliverable name in notes
+        $name = $period->notes;
+        if ($name) {
+            $d = $project->deliverables()->where('name', $name)->first();
+            if ($d && $d->billing_status === 'ready_to_bill') {
+                return (float) ($d->deliverable_fee ?? 0);
+            }
+            return 0.0;
+        }
+
+        // Hybrid: sum all ready-to-bill deliverables
+        return $project->deliverables()
+            ->where('billing_status', 'ready_to_bill')
+            ->sum('deliverable_fee') ?? 0.0;
+    }
+
+    private function getTimesheetBreakdown(Proposal $proposal, BillingSchedulePeriod $period): array
+    {
+        $project = $proposal->project;
+        if (! $project) {
+            return ['rows' => [], 'total_hours' => 0, 'total_fees' => 0, 'has_project' => false];
+        }
+
+        $start   = Carbon::parse($period->period_start)->toDateString();
+        $end     = Carbon::parse($period->period_end)->toDateString();
+
+        $entries = TimesheetEntry::with(['timesheet.user'])
+            ->where('project_id', $project->id)
+            ->where('entry_type', 'billable')
+            ->whereBetween('entry_date', [$start, $end])
+            ->get();
+
+        $grouped    = [];
+        $totalFees  = 0.0;
+        $totalHours = 0.0;
+
+        foreach ($entries as $entry) {
+            $user = $entry->timesheet->user;
+            $rate = ProposalRateSchedule::resolveRateForUser($user, $proposal);
+            $key  = $user->id . '_' . ($user->role?->name ?? '');
+
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'user_name' => $user->name,
+                    'role'      => $user->role?->name ?? 'Staff',
+                    'hours'     => 0.0,
+                    'rate'      => $rate,
+                    'subtotal'  => 0.0,
+                ];
+            }
+            $grouped[$key]['hours']   += $entry->hours;
+            $grouped[$key]['subtotal'] = round($grouped[$key]['hours'] * $rate, 2);
+            $totalHours += $entry->hours;
+            $totalFees  += $entry->hours * $rate;
+        }
+
+        return [
+            'has_project' => true,
+            'rows'        => array_values($grouped),
+            'total_hours' => round($totalHours, 2),
+            'total_fees'  => round($totalFees, 2),
+        ];
+    }
+
+    private function getDeliverableBreakdown(Proposal $proposal, BillingSchedulePeriod $period): array
+    {
+        $project = $proposal->project;
+        if (! $project) {
+            return ['rows' => [], 'total_fees' => 0, 'has_project' => false];
+        }
+
+        $name  = $period->notes;
+        $query = $project->deliverables();
+        if ($name) {
+            $query->where('name', $name);
+        }
+
+        $deliverables = $query->get();
+        $rows         = [];
+        $totalFees    = 0.0;
+
+        foreach ($deliverables as $d) {
+            $ready   = $d->billing_status === 'ready_to_bill';
+            $fee     = (float) ($d->deliverable_fee ?? 0);
+            $rows[]  = [
+                'name'           => $d->name,
+                'billing_status' => $d->billing_status ?? 'pending',
+                'fee'            => $fee,
+                'ready'          => $ready,
+            ];
+            if ($ready) $totalFees += $fee;
+        }
+
+        return [
+            'has_project' => true,
+            'rows'        => $rows,
+            'total_fees'  => round($totalFees, 2),
+        ];
+    }
+
     // ── Line Item Builders ─────────────────────────────────────────────────────
 
     private function buildTimesheetLineItems(Invoice $invoice, Proposal $proposal, BillingSchedulePeriod $period): void

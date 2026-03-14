@@ -81,6 +81,8 @@ Route::middleware(['auth.kore'])->group(function () {
     Route::put('/proposals/{proposal}/billing-schedule/periods/{period}',             [BillingScheduleController::class, 'updatePeriod'])->name('proposals.billing-schedule.periods.update');
     Route::delete('/proposals/{proposal}/billing-schedule/periods/{period}',          [BillingScheduleController::class, 'destroyPeriod'])->name('proposals.billing-schedule.periods.destroy');
     Route::post('/proposals/{proposal}/billing-schedule/periods/{period}/generate-invoice', [BillingScheduleController::class, 'generateInvoice'])->name('proposals.billing-schedule.periods.generate-invoice');
+    Route::get('/proposals/{proposal}/billing-schedule/periods/{period}/breakdown',         [BillingScheduleController::class, 'periodBreakdown'])->name('proposals.billing-schedule.periods.breakdown');
+    Route::post('/proposals/{proposal}/billing-schedule/periods/{period}/compute-fees',     [BillingScheduleController::class, 'computePeriodFees'])->name('proposals.billing-schedule.periods.compute-fees');
 
     // Proposal Deliverables / Activities / Tasks (work breakdown template)
     Route::get('/proposals/{proposal}/deliverables',                                          [ProposalDeliverableController::class, 'index'])->name('proposals.deliverables.index');
