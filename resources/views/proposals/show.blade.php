@@ -729,15 +729,8 @@
         <div class="kore-card-header">
             <h5><i class="bi bi-calendar-plus me-2"></i>Billing Schedule Setup</h5>
         </div>
+        <input type="hidden" id="bs_billing_type" value="{{ $billingType }}">
         <div class="row g-3">
-            <div class="col-sm-3">
-                <label class="form-label">Billing Type</label>
-                <select id="bs_billing_type" class="form-select form-select-sm" onchange="onBillingTypeChange()">
-                    @foreach(['fixed' => 'Fixed Fee', 'time_and_material' => 'Time & Material', 'per_deliverable' => 'Per Deliverable', 'retainer' => 'Retainer', 'hybrid' => 'Hybrid'] as $val => $label)
-                    <option value="{{ $val }}" {{ ($proposal->billing_type === $val || ($bs?->billing_type === $val && !$proposal->billing_type)) ? 'selected' : '' }}>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
             <div class="col-sm-3" id="bs_cycle_col">
                 <label class="form-label">Billing Cycle</label>
                 <select id="bs_billing_cycle" class="form-select form-select-sm">

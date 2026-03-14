@@ -420,18 +420,17 @@ class BillingScheduleController extends Controller
         $expensesTotal = $schedule->include_expenses ? ($proposal->expenses_reserve ?? 0) : 0;
         $feesTotal     = $contractValue - ($proposal->expenses_reserve ?? 0);
 
-        // Per-deliverable: one period per project deliverable using deliverable fees
+        // Per-deliverable: one period per project deliverable, fees start at $0 until deliverable is complete
         if ($schedule->billing_type === 'per_deliverable' && $proposal->project) {
             $deliverables = $proposal->project->deliverables()->orderBy('sort_order')->get();
             if ($deliverables->count() > 0) {
                 $periods = [];
                 foreach ($deliverables as $d) {
-                    $fee       = (float) ($d->deliverable_fee ?? 0);
                     $dueDate   = $d->due_date ? Carbon::parse($d->due_date)->format('Y-m-d') : $end->format('Y-m-d');
                     $periods[] = [
                         'start'    => $start->format('Y-m-d'),
                         'end'      => $dueDate,
-                        'fees'     => $fee,
+                        'fees'     => 0,
                         'expenses' => 0,
                         'notes'    => $d->name,
                     ];
@@ -451,10 +450,14 @@ class BillingScheduleController extends Controller
         $count = count($periods);
         if ($count === 0) return [];
 
-        $feePerPeriod     = round($feesTotal / $count, 2);
-        $expensePerPeriod = round($expensesTotal / $count, 2);
-        $feeRemainder     = round($feesTotal - ($feePerPeriod * $count), 2);
-        $expRemainder     = round($expensesTotal - ($expensePerPeriod * $count), 2);
+        // Only fixed and retainer types auto-calculate fees from contract value.
+        // T&M, hybrid, per_deliverable start at $0 until actual work is recorded.
+        $isAutoCalculated = in_array($schedule->billing_type, ['fixed', 'retainer']);
+
+        $feePerPeriod     = $isAutoCalculated ? round($feesTotal / $count, 2) : 0;
+        $expensePerPeriod = $isAutoCalculated ? round($expensesTotal / $count, 2) : 0;
+        $feeRemainder     = $isAutoCalculated ? round($feesTotal - ($feePerPeriod * $count), 2) : 0;
+        $expRemainder     = $isAutoCalculated ? round($expensesTotal - ($expensePerPeriod * $count), 2) : 0;
 
         foreach ($periods as $i => &$p) {
             $isLast        = ($i === $count - 1);
