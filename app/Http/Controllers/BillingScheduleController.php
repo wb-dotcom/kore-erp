@@ -26,13 +26,8 @@ class BillingScheduleController extends Controller
             return response()->json(['schedule' => null, 'periods' => []]);
         }
 
-        $periods = $schedule->periods->map(function ($p) {
-            $data = $p->toArray();
-            if ($p->invoice_id) {
-                $data['invoice_url']    = route('invoices.show', $p->invoice_id);
-                $data['invoice_number'] = $p->invoice_number;
-            }
-            return $data;
+        $periods = $schedule->periods->values()->map(function ($p, $i) use ($schedule, $proposal) {
+            return $this->mapPeriod($p, $schedule, $proposal, $i, $schedule->periods->count());
         });
 
         return response()->json([
@@ -89,18 +84,78 @@ class BillingScheduleController extends Controller
             ]);
         }
 
-        $fresh = $schedule->fresh('periods');
-        $periodsWithLinks = $fresh->periods->map(function ($p) {
-            $data = $p->toArray();
-            if ($p->invoice_id) {
-                $data['invoice_url'] = route('invoices.show', $p->invoice_id);
+        // Auto-compute actual fees from recorded work for data-driven billing types.
+        // Fixed and retainer use the pre-split contract value; others start at $0
+        // and must be populated from real timesheet/deliverable data.
+        $isDataDriven = in_array($schedule->billing_type, ['time_and_material', 'hybrid', 'per_deliverable']);
+        if ($isDataDriven) {
+            foreach ($schedule->fresh('periods')->periods as $p) {
+                $fees = 0.0;
+                if (in_array($schedule->billing_type, ['time_and_material', 'hybrid'])) {
+                    $fees += $this->sumTimesheetFees($proposal, $p);
+                }
+                if (in_array($schedule->billing_type, ['per_deliverable', 'hybrid'])) {
+                    $fees += $this->sumDeliverableFees($proposal, $p);
+                }
+                $p->update([
+                    'fees_amount'  => round($fees, 2),
+                    'total_amount' => round($fees + (float) $p->expenses_amount, 2),
+                ]);
             }
-            return $data;
+        }
+
+        $fresh   = $schedule->fresh('periods');
+        $total   = $fresh->periods->count();
+        $mapped  = $fresh->periods->values()->map(function ($p, $i) use ($schedule, $proposal, $total) {
+            return $this->mapPeriod($p, $schedule, $proposal, $i, $total);
         });
 
         return response()->json([
             'message'  => 'Billing schedule generated.',
-            'schedule' => array_merge($fresh->toArray(), ['periods' => $periodsWithLinks]),
+            'schedule' => array_merge($fresh->toArray(), ['periods' => $mapped]),
+        ]);
+    }
+
+    /**
+     * POST /proposals/{proposal}/billing-schedule/compute-all
+     * Re-computes fees for all unlocked data-driven periods from actual work data.
+     */
+    public function computeAllPeriods(Proposal $proposal): JsonResponse
+    {
+        $schedule = $proposal->billingSchedule()->with('periods')->first();
+        if (! $schedule) {
+            return response()->json(['message' => 'No billing schedule found.'], 422);
+        }
+
+        if (! in_array($schedule->billing_type, ['time_and_material', 'hybrid', 'per_deliverable'])) {
+            return response()->json(['message' => 'Compute-all only applies to T&M, hybrid, or per-deliverable billing.'], 422);
+        }
+
+        $updated = 0;
+        foreach ($schedule->periods()->where('is_locked', false)->get() as $period) {
+            $fees = 0.0;
+            if (in_array($schedule->billing_type, ['time_and_material', 'hybrid'])) {
+                $fees += $this->sumTimesheetFees($proposal, $period);
+            }
+            if (in_array($schedule->billing_type, ['per_deliverable', 'hybrid'])) {
+                $fees += $this->sumDeliverableFees($proposal, $period);
+            }
+            $period->update([
+                'fees_amount'  => round($fees, 2),
+                'total_amount' => round($fees + (float) $period->expenses_amount, 2),
+            ]);
+            $updated++;
+        }
+
+        $fresh  = $schedule->fresh('periods');
+        $total  = $fresh->periods->count();
+        $mapped = $fresh->periods->values()->map(function ($p, $i) use ($schedule, $proposal, $total) {
+            return $this->mapPeriod($p, $schedule, $proposal, $i, $total);
+        });
+
+        return response()->json([
+            'message' => "Synced fees for {$updated} period(s) from actual work data.",
+            'periods' => $mapped,
         ]);
     }
 
@@ -131,7 +186,6 @@ class BillingScheduleController extends Controller
                 default             => 'fixed_auto',
             };
 
-            // Build only the columns that are guaranteed to exist
             $invoiceData = [
                 'invoice_number' => $invoiceNumber,
                 'company_id'     => $proposal->company_id,
@@ -146,12 +200,10 @@ class BillingScheduleController extends Controller
                 'created_by'     => auth()->id(),
             ];
 
-            // Add nullable project link
             if ($proposal->project?->id) {
                 $invoiceData['project_id'] = $proposal->project->id;
             }
 
-            // Add new columns only if they exist in the schema (migration guard)
             $invoiceColumns = \Schema::getColumnListing('invoices');
             if (in_array('proposal_id', $invoiceColumns)) {
                 $invoiceData['proposal_id'] = $proposal->id;
@@ -167,6 +219,10 @@ class BillingScheduleController extends Controller
 
             if ($billingType === 'time_and_material') {
                 $this->buildTimesheetLineItems($invoice, $proposal, $period);
+            } elseif ($billingType === 'hybrid') {
+                $this->buildHybridLineItems($invoice, $proposal, $period);
+            } elseif ($billingType === 'per_deliverable') {
+                $this->buildDeliverableLineItems($invoice, $proposal, $period);
             } else {
                 $this->buildFixedLineItems($invoice, $proposal, $period, $billingType);
             }
@@ -312,6 +368,10 @@ class BillingScheduleController extends Controller
             $result['deliverables'] = $this->getDeliverableBreakdown($proposal, $period);
         }
 
+        // Computed total preview
+        $result['computed_fees'] = ($result['timesheet']['total_fees'] ?? 0)
+                                 + ($result['deliverables']['total_fees'] ?? 0);
+
         return response()->json($result);
     }
 
@@ -351,10 +411,112 @@ class BillingScheduleController extends Controller
             'total_amount' => $fees + $expenses,
         ]);
 
+        $context = $this->buildPeriodContext($period->fresh(), $schedule, $proposal);
+
         return response()->json([
             'message' => 'Fees computed successfully.',
-            'period'  => $period->fresh(),
+            'period'  => array_merge($period->fresh()->toArray(), ['context' => $context]),
         ]);
+    }
+
+    // ── Private: Period Response Builder ──────────────────────────────────────
+
+    /**
+     * Maps a BillingSchedulePeriod to a response array that includes
+     * billing-type-specific context (hours logged, deliverable status, etc.)
+     * so the frontend can render intelligent period rows.
+     */
+    private function mapPeriod(
+        BillingSchedulePeriod $period,
+        BillingSchedule $schedule,
+        Proposal $proposal,
+        int $index,
+        int $total
+    ): array {
+        $data = $period->toArray();
+
+        if ($period->invoice_id) {
+            $data['invoice_url']    = route('invoices.show', $period->invoice_id);
+            $data['invoice_number'] = $period->invoice_number;
+        }
+
+        $data['context'] = $this->buildPeriodContext($period, $schedule, $proposal, $index, $total);
+
+        return $data;
+    }
+
+    /**
+     * Builds billing-type-specific context for a period.
+     * This drives which input mechanism is shown in the billing schedule UI.
+     *
+     *  - fixed/retainer  → period_index, period_count (shows "Period N of N")
+     *  - time_and_material/hybrid → hours_logged, hours_fee (shows "X hrs · $Y")
+     *  - per_deliverable → deliverable_name, deliverable_status (shows deliverable badge)
+     *  - hybrid          → hours_logged + hours_fee + note about fixed component
+     */
+    private function buildPeriodContext(
+        BillingSchedulePeriod $period,
+        BillingSchedule $schedule,
+        Proposal $proposal,
+        int $index = 0,
+        int $total = 1
+    ): array {
+        $ctx = [
+            'period_index'       => $index + 1,
+            'period_count'       => $total,
+            'hours_logged'       => null,
+            'hours_fee'          => null,
+            'deliverable_name'   => null,
+            'deliverable_status' => null,
+        ];
+
+        $billingType = $schedule->billing_type;
+
+        // T&M and hybrid: query actual billable hours for this date range
+        if (in_array($billingType, ['time_and_material', 'hybrid'])) {
+            $project = $proposal->project;
+            if ($project) {
+                $start = Carbon::parse($period->period_start)->toDateString();
+                $end   = Carbon::parse($period->period_end)->toDateString();
+
+                $entries = TimesheetEntry::with(['timesheet.user'])
+                    ->where('project_id', $project->id)
+                    ->where('entry_type', 'billable')
+                    ->whereBetween('entry_date', [$start, $end])
+                    ->get();
+
+                $totalHours = 0.0;
+                $totalFees  = 0.0;
+                foreach ($entries as $entry) {
+                    $user       = $entry->timesheet->user;
+                    $rate       = ProposalRateSchedule::resolveRateForUser($user, $proposal);
+                    $totalHours += $entry->hours;
+                    $totalFees  += $entry->hours * $rate;
+                }
+
+                $ctx['hours_logged'] = round($totalHours, 2);
+                $ctx['hours_fee']    = round($totalFees, 2);
+            } else {
+                $ctx['hours_logged'] = 0;
+                $ctx['hours_fee']    = 0;
+            }
+        }
+
+        // Per-deliverable: resolve deliverable name (stored in notes) and its billing status
+        if ($billingType === 'per_deliverable' && $period->notes) {
+            $project = $proposal->project;
+            $ctx['deliverable_name'] = $period->notes;
+            if ($project) {
+                $d = $project->deliverables()->where('name', $period->notes)->first();
+                $ctx['deliverable_status'] = $d?->billing_status ?? 'pending';
+                $ctx['deliverable_fee']    = (float) ($d?->deliverable_fee ?? 0);
+            } else {
+                $ctx['deliverable_status'] = 'pending';
+                $ctx['deliverable_fee']    = 0;
+            }
+        }
+
+        return $ctx;
     }
 
     // ── Private: Fee Computation Helpers ──────────────────────────────────────
@@ -530,14 +692,8 @@ class BillingScheduleController extends Controller
         $grouped = [];
         foreach ($entries as $entry) {
             $user     = $entry->timesheet->user;
-            $roleName = $user->title ?? $user->roles->first()?->name ?? 'Professional Staff';
-
-            $rate = ProposalRateSchedule::where('proposal_id', $proposal->id)
-                        ->where('role_name', $roleName)
-                        ->value('rate')
-                    ?? ScheduleOfFee::where('role_name', $roleName)->value('hourly_rate')
-                    ?? $user->hourly_cost
-                    ?? 0;
+            $rate     = ProposalRateSchedule::resolveRateForUser($user, $proposal);
+            $roleName = $user->role?->name ?? 'Professional Staff';
 
             $key = $user->id . '_' . $roleName;
             if (! isset($grouped[$key])) {
@@ -565,41 +721,109 @@ class BillingScheduleController extends Controller
         }
     }
 
+    private function buildDeliverableLineItems(Invoice $invoice, Proposal $proposal, BillingSchedulePeriod $period): void
+    {
+        $project = $proposal->project;
+
+        if (! $project || ! $period->notes) {
+            InvoiceItem::create([
+                'invoice_id'  => $invoice->id,
+                'description' => $period->notes ? "Deliverable: {$period->notes}" : 'Deliverable Services',
+                'quantity'    => 1,
+                'unit_price'  => $period->fees_amount,
+                'line_total'  => $period->fees_amount,
+                'sort_order'  => 0,
+            ]);
+            return;
+        }
+
+        $d = $project->deliverables()->where('name', $period->notes)->first();
+        $fee = $d?->billing_status === 'ready_to_bill' ? (float) ($d->deliverable_fee ?? 0) : 0.0;
+
+        InvoiceItem::create([
+            'invoice_id'  => $invoice->id,
+            'description' => "Deliverable: {$period->notes}",
+            'quantity'    => 1,
+            'unit_price'  => $fee,
+            'line_total'  => $fee,
+            'sort_order'  => 0,
+        ]);
+
+        if ($period->expenses_amount > 0) {
+            $periodLabel = Carbon::parse($period->period_start)->format('M d')
+                         . ' – ' . Carbon::parse($period->period_end)->format('M d, Y');
+            InvoiceItem::create([
+                'invoice_id'  => $invoice->id,
+                'description' => "Reimbursable Expenses — {$periodLabel}",
+                'quantity'    => 1,
+                'unit_price'  => $period->expenses_amount,
+                'line_total'  => $period->expenses_amount,
+                'sort_order'  => 1,
+            ]);
+        }
+    }
+
+    private function buildHybridLineItems(Invoice $invoice, Proposal $proposal, BillingSchedulePeriod $period): void
+    {
+        // T&M component
+        $this->buildTimesheetLineItems($invoice, $proposal, $period);
+
+        // Deliverable component (ready-to-bill items not yet counted)
+        $project = $proposal->project;
+        if ($project) {
+            $readyDeliverables = $project->deliverables()
+                ->where('billing_status', 'ready_to_bill')
+                ->get();
+
+            foreach ($readyDeliverables as $i => $d) {
+                $fee = (float) ($d->deliverable_fee ?? 0);
+                if ($fee > 0) {
+                    InvoiceItem::create([
+                        'invoice_id'  => $invoice->id,
+                        'description' => "Deliverable: {$d->name}",
+                        'quantity'    => 1,
+                        'unit_price'  => $fee,
+                        'line_total'  => $fee,
+                        'sort_order'  => 100 + $i,
+                    ]);
+                }
+            }
+        }
+
+        if ($period->expenses_amount > 0) {
+            $periodLabel = Carbon::parse($period->period_start)->format('M d')
+                         . ' – ' . Carbon::parse($period->period_end)->format('M d, Y');
+            InvoiceItem::create([
+                'invoice_id'  => $invoice->id,
+                'description' => "Reimbursable Expenses — {$periodLabel}",
+                'quantity'    => 1,
+                'unit_price'  => $period->expenses_amount,
+                'line_total'  => $period->expenses_amount,
+                'sort_order'  => 200,
+            ]);
+        }
+    }
+
     private function buildFixedLineItems(Invoice $invoice, Proposal $proposal, BillingSchedulePeriod $period, string $billingType): void
     {
         $periodLabel = Carbon::parse($period->period_start)->format('M d')
                      . ' – '
                      . Carbon::parse($period->period_end)->format('M d, Y');
 
-        // Per-deliverable: use notes to identify which deliverable this period is for
-        if ($billingType === 'per_deliverable' && $period->notes) {
-            // notes stores the deliverable name for per_deliverable periods
-            InvoiceItem::create([
-                'invoice_id'  => $invoice->id,
-                'description' => "Deliverable: {$period->notes}",
-                'quantity'    => 1,
-                'unit_price'  => $period->fees_amount,
-                'line_total'  => $period->fees_amount,
-                'sort_order'  => 0,
-            ]);
-        } else {
-            $typeLabel = match ($billingType) {
-                'fixed'           => 'Fixed Fee',
-                'retainer'        => 'Retainer Fee',
-                'per_deliverable' => 'Deliverable Fee',
-                'hybrid'          => 'Professional Services',
-                default           => 'Professional Services',
-            };
+        $typeLabel = match ($billingType) {
+            'fixed'   => 'Fixed Fee',
+            'retainer' => 'Retainer Fee',
+            default    => 'Professional Services',
+        };
 
-            InvoiceItem::create([
-                'invoice_id'  => $invoice->id,
-                'description' => "{$typeLabel} — {$periodLabel}",
-                'quantity'    => 1,
-                'unit_price'  => $period->fees_amount,
-                'line_total'  => $period->fees_amount,
-                'sort_order'  => 0,
-            ]);
-        }
+        InvoiceItem::create([
+            'invoice_id'  => $invoice->id,
+            'description' => "{$typeLabel} — {$periodLabel}",
+            'quantity'    => 1,
+            'unit_price'  => $period->fees_amount,
+            'line_total'  => $period->fees_amount,
+            'sort_order'  => 0,
+        ]);
 
         if ($period->expenses_amount > 0) {
             InvoiceItem::create([
@@ -653,8 +877,9 @@ class BillingScheduleController extends Controller
         $count = count($periods);
         if ($count === 0) return [];
 
-        // Only fixed and retainer types auto-calculate fees from contract value.
-        // T&M, hybrid, per_deliverable start at $0 until actual work is recorded.
+        // Only fixed and retainer auto-divide contract value across periods.
+        // T&M, hybrid, and per_deliverable start at $0 — fees are computed
+        // from actual timesheet entries / deliverable statuses after period creation.
         $isAutoCalculated = in_array($schedule->billing_type, ['fixed', 'retainer']);
 
         $feePerPeriod     = $isAutoCalculated ? round($feesTotal / $count, 2) : 0;

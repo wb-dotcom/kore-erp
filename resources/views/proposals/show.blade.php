@@ -780,30 +780,118 @@
     <div class="kore-card mb-4">
         <div class="kore-card-header">
             <h5><i class="bi bi-table me-2"></i>Invoice Periods</h5>
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addPeriodModal">
-                <i class="bi bi-plus-lg me-1"></i> Add Period
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                @if(!in_array($billingType, ['fixed', 'retainer']))
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="syncAllPeriods(this)"
+                    title="Re-compute all period fees from actual timesheet hours and deliverable completions">
+                    <i class="bi bi-arrow-repeat me-1"></i> Sync from Work Data
+                </button>
+                @endif
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addPeriodModal">
+                    <i class="bi bi-plus-lg me-1"></i> Add Period
+                </button>
+            </div>
         </div>
+
+        {{-- Billing-type context banner for data-driven types --}}
+        @if($billingType === 'time_and_material')
+        <div class="bs-context-banner bs-banner-tm">
+            <i class="bi bi-clock me-1"></i>
+            <strong>Time &amp; Material:</strong> Fees are calculated from billable timesheet entries logged against the linked project. Period amounts update automatically when you click <em>Sync from Work Data</em> or use the <i class="bi bi-calculator"></i> icon per period. <strong>$0.00 means no hours have been logged yet.</strong>
+        </div>
+        @elseif($billingType === 'per_deliverable')
+        <div class="bs-context-banner bs-banner-del">
+            <i class="bi bi-check2-square me-1"></i>
+            <strong>Per Deliverable:</strong> Each period corresponds to one deliverable. Fee is included only when the deliverable is marked <strong>Ready to Bill</strong> in the project. Update deliverable status in the project, then click <em>Sync from Work Data</em>.
+        </div>
+        @elseif($billingType === 'hybrid')
+        <div class="bs-context-banner bs-banner-hybrid">
+            <i class="bi bi-layers me-1"></i>
+            <strong>Hybrid:</strong> Fees combine T&amp;M hours from timesheets plus any ready-to-bill deliverables. Use the <i class="bi bi-calculator"></i> icon to add an optional fixed component per period.
+        </div>
+        @endif
+
         <div id="billingPeriodsBody">
             @if($bs && $bs->periods->count() > 0)
                 @php
                     $statusColors = ['draft'=>'secondary','approved'=>'info','invoiced'=>'primary','paid'=>'success','overdue'=>'danger'];
+                    $isDataDriven = !in_array($billingType, ['fixed', 'retainer']);
                 @endphp
                 <div class="billing-period-row header">
-                    <div>Period Start</div><div>Period End</div>
+                    <div>Period</div>
+                    <div>{{ $billingType === 'per_deliverable' ? 'Deliverable' : 'Fee Basis' }}</div>
                     <div>Fees</div><div>Expenses</div><div>Total</div>
                     <div>Status</div><div>Invoice #</div><div>Actions</div>
                 </div>
-                @php $needsCompute = !in_array($billingType, ['fixed', 'retainer']); @endphp
                 @foreach($bs->periods->sortBy('sort_order') as $period)
+                @php
+                    $ctx = [];
+                    // Build server-side context for Blade rendering
+                    if ($billingType === 'time_and_material' || $billingType === 'hybrid') {
+                        $project = $proposal->project;
+                        if ($project) {
+                            $pStart = $period->period_start->toDateString();
+                            $pEnd   = $period->period_end->toDateString();
+                            $hrs = \App\Models\TimesheetEntry::where('project_id', $project->id)
+                                ->where('entry_type', 'billable')
+                                ->whereBetween('entry_date', [$pStart, $pEnd])
+                                ->sum('hours');
+                            $ctx['hours_logged'] = round((float)$hrs, 2);
+                        } else {
+                            $ctx['hours_logged'] = 0;
+                        }
+                    }
+                    if ($billingType === 'per_deliverable' && $period->notes) {
+                        $project = $proposal->project;
+                        $ctx['deliverable_name']   = $period->notes;
+                        $ctx['deliverable_status'] = 'pending';
+                        if ($project) {
+                            $d = $project->deliverables()->where('name', $period->notes)->first();
+                            $ctx['deliverable_status'] = $d?->billing_status ?? 'pending';
+                        }
+                    }
+                    $delStatusColors = ['pending'=>'secondary','ready_to_bill'=>'warning','invoiced'=>'primary','paid'=>'success'];
+                @endphp
                 <div class="billing-period-row" id="bpr-{{ $period->id }}">
-                    <div>{{ $period->period_start->format('M d, Y') }}</div>
-                    <div>{{ $period->period_end->format('M d, Y') }}</div>
+                    {{-- Period date range --}}
+                    <div>
+                        <div style="font-size:0.78rem; font-weight:600;">{{ $period->period_start->format('M d') }} – {{ $period->period_end->format('M d, Y') }}</div>
+                    </div>
+
+                    {{-- Fee basis context (billing-type-specific) --}}
+                    <div style="font-size:0.75rem; color:#6b7280;">
+                        @if($billingType === 'time_and_material')
+                            @if(isset($ctx['hours_logged']) && $ctx['hours_logged'] > 0)
+                                <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ $ctx['hours_logged'] }} hrs logged</span>
+                            @else
+                                <span class="text-muted"><i class="bi bi-clock me-1"></i>No hours logged</span>
+                            @endif
+                        @elseif($billingType === 'per_deliverable')
+                            @if(isset($ctx['deliverable_name']))
+                                <div style="font-size:0.73rem; font-weight:500; color:#374151;">{{ $ctx['deliverable_name'] }}</div>
+                                <span class="badge bg-{{ $delStatusColors[$ctx['deliverable_status']] ?? 'secondary' }}">
+                                    {{ ucwords(str_replace('_',' ', $ctx['deliverable_status'])) }}
+                                </span>
+                            @else
+                                <span class="text-muted">No deliverable</span>
+                            @endif
+                        @elseif($billingType === 'hybrid')
+                            @if(isset($ctx['hours_logged']) && $ctx['hours_logged'] > 0)
+                                <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ $ctx['hours_logged'] }} hrs</span>
+                            @else
+                                <span class="text-muted">T&M + Deliverables</span>
+                            @endif
+                        @elseif($billingType === 'fixed' || $billingType === 'retainer')
+                            <span class="text-muted" style="font-size:0.7rem;">Auto-split</span>
+                        @endif
+                    </div>
+
+                    {{-- Fees amount --}}
                     <div>
                         <span class="period-fee-val">${{ number_format($period->fees_amount, 2) }}</span>
-                        @if($needsCompute && !$period->is_locked)
+                        @if($isDataDriven && !$period->is_locked)
                         <button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb; vertical-align:middle;"
-                            onclick="openPeriodBreakdown({{ $period->id }})" title="Compute from actual data">
+                            onclick="openPeriodBreakdown({{ $period->id }})" title="View breakdown &amp; compute fees">
                             <i class="bi bi-calculator"></i>
                         </button>
                         @endif
@@ -1033,8 +1121,14 @@
 .field-value { font-size:0.83rem; color:#111827; font-weight:500; }
 
 /* Billing periods table */
-.billing-period-row { display:grid; grid-template-columns:140px 140px 1fr 1fr 1fr 120px 110px 40px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6; font-size:0.8rem; }
+.billing-period-row { display:grid; grid-template-columns:160px 1fr 110px 90px 110px 110px 100px 40px; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:0.8rem; }
 .billing-period-row.header { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:#9ca3af; letter-spacing:0.5px; padding-bottom:6px; border-bottom:2px solid #e5e7eb; }
+
+/* Billing-type context banners */
+.bs-context-banner { padding:8px 12px; border-radius:6px; font-size:0.78rem; margin-bottom:12px; }
+.bs-banner-tm     { background:#eff6ff; border-left:3px solid #3b82f6; color:#1e40af; }
+.bs-banner-del    { background:#fefce8; border-left:3px solid #eab308; color:#854d0e; }
+.bs-banner-hybrid { background:#f0fdf4; border-left:3px solid #22c55e; color:#14532d; }
 
 /* Quill editor */
 .quill-editor { min-height:120px; }
@@ -1339,6 +1433,13 @@ async function generateBillingSchedule() {
     }
 }
 
+/**
+ * Renders billing period rows with billing-type-specific context cells.
+ * Each period includes a `context` object from the API with:
+ *   - hours_logged / hours_fee        (T&M / hybrid)
+ *   - deliverable_name / status       (per_deliverable)
+ *   - period_index / period_count     (fixed / retainer)
+ */
 function renderBillingPeriods(periods) {
     const container = document.getElementById('billingPeriodsBody');
     if (!container) return;
@@ -1346,24 +1447,65 @@ function renderBillingPeriods(periods) {
         container.innerHTML = '<p class="text-muted text-center py-3" style="font-size:0.83rem;">No periods generated.</p>';
         return;
     }
-    const statusColors  = { draft:'secondary', approved:'info', invoiced:'primary', paid:'success', overdue:'danger' };
-    const billingType   = document.getElementById('bs_billing_type')?.value || 'fixed';
-    const needsCompute  = !['fixed', 'retainer'].includes(billingType);
+
+    const statusColors    = { draft:'secondary', approved:'info', invoiced:'primary', paid:'success', overdue:'danger' };
+    const delStatusColors = { pending:'secondary', ready_to_bill:'warning', invoiced:'primary', paid:'success' };
+    const billingType     = document.getElementById('bs_billing_type')?.value || 'fixed';
+    const isDataDriven    = !['fixed', 'retainer'].includes(billingType);
+
+    const periodHeader = billingType === 'per_deliverable' ? 'Deliverable' : 'Fee Basis';
 
     let html = `<div class="billing-period-row header">
-        <div>Period Start</div><div>Period End</div>
+        <div>Period</div><div>${esc(periodHeader)}</div>
         <div>Fees</div><div>Expenses</div><div>Total</div>
         <div>Status</div><div>Invoice #</div><div></div>
     </div>`;
+
     periods.forEach(p => {
         const color  = statusColors[p.status] || 'secondary';
         const locked = p.is_locked ? '🔒 ' : '';
+        const ctx    = p.context || {};
 
-        const computeBtn = (needsCompute && !p.is_locked)
+        // ── Fee basis context cell ──────────────────────────────────────────
+        let basisHtml = '';
+        if (billingType === 'time_and_material') {
+            if (ctx.hours_logged > 0) {
+                basisHtml = `<span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>${ctx.hours_logged} hrs logged</span>`;
+            } else {
+                basisHtml = `<span class="text-muted" style="font-size:0.75rem;"><i class="bi bi-clock me-1"></i>No hours logged</span>`;
+            }
+        } else if (billingType === 'per_deliverable') {
+            if (ctx.deliverable_name) {
+                const dColor = delStatusColors[ctx.deliverable_status] || 'secondary';
+                const dLabel = (ctx.deliverable_status || 'pending').replace(/_/g, ' ');
+                basisHtml = `<div style="font-size:0.73rem; font-weight:500; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(ctx.deliverable_name)}</div>
+                    <span class="badge bg-${dColor}">${esc(dLabel)}</span>`;
+            } else {
+                basisHtml = `<span class="text-muted" style="font-size:0.73rem;">No deliverable</span>`;
+            }
+        } else if (billingType === 'hybrid') {
+            if (ctx.hours_logged > 0) {
+                basisHtml = `<span class="badge bg-light text-dark border me-1"><i class="bi bi-clock me-1"></i>${ctx.hours_logged} hrs</span>
+                    <span class="badge bg-light text-dark border">+ deliverables</span>`;
+            } else {
+                basisHtml = `<span class="text-muted" style="font-size:0.73rem;">T&M + Deliverables</span>`;
+            }
+        } else {
+            // fixed / retainer
+            if (ctx.period_count > 1) {
+                basisHtml = `<span class="text-muted" style="font-size:0.7rem;">Period ${ctx.period_index} of ${ctx.period_count}</span>`;
+            } else {
+                basisHtml = `<span class="text-muted" style="font-size:0.7rem;">Auto-split</span>`;
+            }
+        }
+
+        // ── Compute button (data-driven types only) ─────────────────────────
+        const computeBtn = (isDataDriven && !p.is_locked)
             ? `<button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb; vertical-align:middle;"
-                   onclick="openPeriodBreakdown(${p.id})" title="Compute from actual data"><i class="bi bi-calculator"></i></button>`
+                   onclick="openPeriodBreakdown(${p.id})" title="View breakdown &amp; compute fees"><i class="bi bi-calculator"></i></button>`
             : '';
 
+        // ── Invoice / action button ─────────────────────────────────────────
         let actionBtn = '';
         if (p.invoice_id && p.invoice_url) {
             actionBtn = `<a href="${p.invoice_url}" class="btn btn-outline-success" style="font-size:0.68rem; padding:2px 7px;"><i class="bi bi-eye me-1"></i>${esc(p.invoice_number)}</a>`;
@@ -1371,9 +1513,18 @@ function renderBillingPeriods(periods) {
             actionBtn = `<button class="btn btn-outline-primary" style="font-size:0.68rem; padding:2px 7px;" onclick="generateInvoiceFromPeriod(${p.id}, this)"><i class="bi bi-receipt me-1"></i>Invoice</button>`;
         }
 
+        // Format date range nicely
+        const pStart = p.period_start ? p.period_start.substring(0, 10) : '';
+        const pEnd   = p.period_end   ? p.period_end.substring(0, 10)   : '';
+        const fmtDate = d => {
+            if (!d) return '';
+            const dt = new Date(d + 'T00:00:00');
+            return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+        };
+
         html += `<div class="billing-period-row" id="bpr-${p.id}">
-            <div>${p.period_start}</div>
-            <div>${p.period_end}</div>
+            <div style="font-size:0.78rem; font-weight:600;">${fmtDate(pStart)} – ${fmtDate(pEnd)}</div>
+            <div style="font-size:0.75rem;">${basisHtml}</div>
             <div><span class="period-fee-val">$${fmtMoney(p.fees_amount)}</span>${computeBtn}</div>
             <div>$${fmtMoney(p.expenses_amount)}</div>
             <div><strong class="period-total-val">$${fmtMoney(p.total_amount)}</strong></div>
@@ -1385,7 +1536,47 @@ function renderBillingPeriods(periods) {
             </div>
         </div>`;
     });
+
     container.innerHTML = html;
+}
+
+/**
+ * Re-computes fees for all unlocked periods from actual timesheet/deliverable data.
+ * For T&M: sums billable hours × rate for each period date range.
+ * For per_deliverable: sets fee if deliverable is "ready_to_bill", else $0.
+ * For hybrid: T&M hours + ready-to-bill deliverables.
+ */
+async function syncAllPeriods(btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Syncing…';
+
+    try {
+        const res  = await fetch(BASE_URL + '/billing-schedule/compute-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+            body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            renderBillingPeriods(data.periods);
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Synced!';
+            btn.classList.replace('btn-outline-info', 'btn-success');
+            setTimeout(() => {
+                btn.innerHTML = orig;
+                btn.classList.replace('btn-success', 'btn-outline-info');
+                btn.disabled = false;
+            }, 2500);
+        } else {
+            alert(data.message || 'Failed to sync periods.');
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    } catch (e) {
+        alert('Network error syncing periods.');
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
 }
 
 // ── Period Fee Breakdown & Compute ────────────────────────────────────────────
