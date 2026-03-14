@@ -814,117 +814,139 @@
         <div id="billingPeriodsBody">
             @if($bs && $bs->periods->count() > 0)
                 @php
-                    $statusColors = ['draft'=>'secondary','approved'=>'info','invoiced'=>'primary','paid'=>'success','overdue'=>'danger'];
-                    $isDataDriven = !in_array($billingType, ['fixed', 'retainer']);
-                @endphp
-                <div class="billing-period-row header">
-                    <div>Period</div>
-                    <div>{{ $billingType === 'per_deliverable' ? 'Deliverable' : 'Fee Basis' }}</div>
-                    <div>Fees</div><div>Expenses</div><div>Total</div>
-                    <div>Status</div><div>Invoice #</div><div>Actions</div>
-                </div>
-                @foreach($bs->periods->sortBy('sort_order') as $period)
-                @php
-                    $ctx = [];
-                    // Build server-side context for Blade rendering
-                    if ($billingType === 'time_and_material' || $billingType === 'hybrid') {
-                        $project = $proposal->project;
-                        if ($project) {
-                            $pStart = $period->period_start->toDateString();
-                            $pEnd   = $period->period_end->toDateString();
-                            $hrs = \App\Models\TimesheetEntry::where('project_id', $project->id)
-                                ->where('entry_type', 'billable')
-                                ->whereBetween('entry_date', [$pStart, $pEnd])
-                                ->sum('hours');
-                            $ctx['hours_logged'] = round((float)$hrs, 2);
-                        } else {
-                            $ctx['hours_logged'] = 0;
-                        }
-                    }
-                    if ($billingType === 'per_deliverable' && $period->notes) {
-                        $project = $proposal->project;
-                        $ctx['deliverable_name']   = $period->notes;
-                        $ctx['deliverable_status'] = 'pending';
-                        if ($project) {
-                            $d = $project->deliverables()->where('name', $period->notes)->first();
-                            $ctx['deliverable_status'] = $d?->billing_status ?? 'pending';
-                        }
-                    }
+                    $statusColors    = ['draft'=>'secondary','approved'=>'info','invoiced'=>'primary','paid'=>'success','overdue'=>'danger'];
                     $delStatusColors = ['pending'=>'secondary','ready_to_bill'=>'warning','invoiced'=>'primary','paid'=>'success'];
+                    $isDataDriven    = !in_array($billingType, ['fixed', 'retainer']);
+                    $basisLabel      = $billingType === 'per_deliverable' ? 'Deliverable' : 'Basis';
                 @endphp
-                <div class="billing-period-row" id="bpr-{{ $period->id }}">
-                    {{-- Period date range --}}
-                    <div>
-                        <div style="font-size:0.78rem; font-weight:600;">{{ $period->period_start->format('M d') }} – {{ $period->period_end->format('M d, Y') }}</div>
-                    </div>
+                <div class="table-responsive">
+                <table class="table table-sm bp-table">
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>{{ $basisLabel }}</th>
+                            <th class="text-end">Amount Billed</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach($bs->periods->sortBy('sort_order') as $period)
+                    @php
+                        // Build context for fee basis cell
+                        $ctx = [];
+                        if (in_array($billingType, ['time_and_material', 'hybrid'])) {
+                            $project = $proposal->project;
+                            if ($project) {
+                                $hrs = \App\Models\TimesheetEntry::where('project_id', $project->id)
+                                    ->where('entry_type', 'billable')
+                                    ->whereBetween('entry_date', [$period->period_start->toDateString(), $period->period_end->toDateString()])
+                                    ->sum('hours');
+                                $ctx['hours_logged'] = round((float)$hrs, 2);
+                            } else {
+                                $ctx['hours_logged'] = 0;
+                            }
+                        }
+                        if ($billingType === 'per_deliverable' && $period->notes) {
+                            $project = $proposal->project;
+                            $ctx['deliverable_name']   = $period->notes;
+                            $ctx['deliverable_status'] = 'pending';
+                            if ($project) {
+                                $d = $project->deliverables()->where('name', $period->notes)->first();
+                                $ctx['deliverable_status'] = $d?->billing_status ?? 'pending';
+                            }
+                        }
+                        // Actual billed = fees from real work; expenses shown as sub-line if non-zero
+                        $billedFees     = (float) $period->fees_amount;
+                        $billedExpenses = (float) $period->expenses_amount;
+                        $billedTotal    = $billedFees + $billedExpenses;
+                    @endphp
+                    <tr id="bpr-{{ $period->id }}">
+                        {{-- Period --}}
+                        <td style="white-space:nowrap; font-weight:600; font-size:0.8rem;">
+                            {{ $period->period_start->format('M d') }} – {{ $period->period_end->format('M d, Y') }}
+                        </td>
 
-                    {{-- Fee basis context (billing-type-specific) --}}
-                    <div style="font-size:0.75rem; color:#6b7280;">
-                        @if($billingType === 'time_and_material')
-                            @if(isset($ctx['hours_logged']) && $ctx['hours_logged'] > 0)
-                                <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ $ctx['hours_logged'] }} hrs logged</span>
+                        {{-- Fee basis --}}
+                        <td style="font-size:0.78rem; color:#6b7280;">
+                            @if($billingType === 'time_and_material')
+                                @if(($ctx['hours_logged'] ?? 0) > 0)
+                                    <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ $ctx['hours_logged'] }} hrs</span>
+                                @else
+                                    <span class="text-muted"><i class="bi bi-clock me-1"></i>No hours logged</span>
+                                @endif
+                            @elseif($billingType === 'per_deliverable')
+                                @if(isset($ctx['deliverable_name']))
+                                    <div style="font-weight:500; color:#374151; font-size:0.77rem;">{{ $ctx['deliverable_name'] }}</div>
+                                    <span class="badge bg-{{ $delStatusColors[$ctx['deliverable_status']] ?? 'secondary' }}" style="font-size:0.65rem;">
+                                        {{ ucwords(str_replace('_',' ', $ctx['deliverable_status'])) }}
+                                    </span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            @elseif($billingType === 'hybrid')
+                                @if(($ctx['hours_logged'] ?? 0) > 0)
+                                    <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ $ctx['hours_logged'] }} hrs + deliverables</span>
+                                @else
+                                    <span class="text-muted">T&M + deliverables</span>
+                                @endif
                             @else
-                                <span class="text-muted"><i class="bi bi-clock me-1"></i>No hours logged</span>
+                                <span class="text-muted" style="font-size:0.72rem;">Fixed split</span>
                             @endif
-                        @elseif($billingType === 'per_deliverable')
-                            @if(isset($ctx['deliverable_name']))
-                                <div style="font-size:0.73rem; font-weight:500; color:#374151;">{{ $ctx['deliverable_name'] }}</div>
-                                <span class="badge bg-{{ $delStatusColors[$ctx['deliverable_status']] ?? 'secondary' }}">
-                                    {{ ucwords(str_replace('_',' ', $ctx['deliverable_status'])) }}
-                                </span>
-                            @else
-                                <span class="text-muted">No deliverable</span>
-                            @endif
-                        @elseif($billingType === 'hybrid')
-                            @if(isset($ctx['hours_logged']) && $ctx['hours_logged'] > 0)
-                                <span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>{{ $ctx['hours_logged'] }} hrs</span>
-                            @else
-                                <span class="text-muted">T&M + Deliverables</span>
-                            @endif
-                        @elseif($billingType === 'fixed' || $billingType === 'retainer')
-                            <span class="text-muted" style="font-size:0.7rem;">Auto-split</span>
-                        @endif
-                    </div>
+                        </td>
 
-                    {{-- Fees amount --}}
-                    <div>
-                        <span class="period-fee-val">${{ number_format($period->fees_amount, 2) }}</span>
-                        @if($isDataDriven && !$period->is_locked)
-                        <button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb; vertical-align:middle;"
-                            onclick="openPeriodBreakdown({{ $period->id }})" title="View breakdown &amp; compute fees">
-                            <i class="bi bi-calculator"></i>
-                        </button>
-                        @endif
-                    </div>
-                    <div>${{ number_format($period->expenses_amount, 2) }}</div>
-                    <div><strong class="period-total-val">${{ number_format($period->total_amount, 2) }}</strong></div>
-                    <div>
-                        <span class="badge bg-{{ $statusColors[$period->status] ?? 'secondary' }}">
-                            {{ $period->is_locked ? '🔒 ' : '' }}{{ $period->status }}
-                        </span>
-                    </div>
-                    <div style="font-size:0.75rem; color:#6b7280;">{{ $period->invoice_number ?? '—' }}</div>
-                    <div class="d-flex align-items-center gap-1">
-                        @if(!$period->invoice_id)
-                        <button class="btn btn-xs btn-outline-primary" style="font-size:0.68rem; padding:2px 7px;"
-                            onclick="generateInvoiceFromPeriod({{ $period->id }}, this)" title="Generate Invoice">
-                            <i class="bi bi-receipt me-1"></i>Invoice
-                        </button>
-                        @else
-                        <a href="{{ route('invoices.show', $period->invoice_id) }}"
-                           class="btn btn-xs btn-outline-success" style="font-size:0.68rem; padding:2px 7px;" title="View Invoice">
-                            <i class="bi bi-eye me-1"></i>{{ $period->invoice_number }}
-                        </a>
-                        @endif
-                        @if(!$period->is_locked)
-                        <button class="btn btn-link btn-sm p-0 text-danger"
-                            onclick="deletePeriod({{ $period->id }})" title="Delete">
-                            <i class="bi bi-trash" style="font-size:0.75rem;"></i>
-                        </button>
-                        @endif
-                    </div>
+                        {{-- Amount billed (actual only) --}}
+                        <td class="text-end" style="white-space:nowrap;">
+                            <strong class="period-total-val" style="font-size:0.88rem;">
+                                @if($isDataDriven && $billedTotal == 0)
+                                    <span class="text-muted">$0.00</span>
+                                @else
+                                    ${{ number_format($billedTotal, 2) }}
+                                @endif
+                            </strong>
+                            @if($isDataDriven && !$period->is_locked)
+                            <button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb;"
+                                onclick="openPeriodBreakdown({{ $period->id }})" title="View breakdown">
+                                <i class="bi bi-calculator"></i>
+                            </button>
+                            @endif
+                            @if($billedExpenses > 0)
+                            <div style="font-size:0.68rem; color:#9ca3af;">incl. ${{ number_format($billedExpenses, 2) }} exp.</div>
+                            @endif
+                        </td>
+
+                        {{-- Status --}}
+                        <td style="white-space:nowrap;">
+                            <span class="badge bg-{{ $statusColors[$period->status] ?? 'secondary' }}">
+                                {{ $period->is_locked ? '🔒 ' : '' }}{{ ucfirst($period->status) }}
+                            </span>
+                        </td>
+
+                        {{-- Actions --}}
+                        <td class="text-end" style="white-space:nowrap;">
+                            @if($period->invoice_id)
+                                <a href="{{ route('invoices.show', $period->invoice_id) }}"
+                                   class="btn btn-xs btn-outline-success" style="font-size:0.7rem; padding:3px 8px;">
+                                    <i class="bi bi-eye me-1"></i>{{ $period->invoice_number }}
+                                </a>
+                            @else
+                                <button class="btn btn-xs btn-outline-primary" style="font-size:0.7rem; padding:3px 8px;"
+                                    onclick="generateInvoiceFromPeriod({{ $period->id }}, this)">
+                                    <i class="bi bi-receipt me-1"></i>Invoice
+                                </button>
+                            @endif
+                            @if(!$period->is_locked)
+                            <button class="btn btn-link btn-sm p-0 ms-2 text-danger"
+                                onclick="deletePeriod({{ $period->id }})" title="Delete">
+                                <i class="bi bi-trash" style="font-size:0.8rem;"></i>
+                            </button>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                    </tbody>
+                </table>
                 </div>
-                @endforeach
             @else
             <p class="text-muted text-center py-3" style="font-size:0.83rem;">
                 No billing periods yet. Configure the schedule above and click Generate.
@@ -1121,8 +1143,10 @@
 .field-value { font-size:0.83rem; color:#111827; font-weight:500; }
 
 /* Billing periods table */
-.billing-period-row { display:grid; grid-template-columns:160px 1fr 110px 90px 110px 110px 100px 40px; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid #f3f4f6; font-size:0.8rem; }
-.billing-period-row.header { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:#9ca3af; letter-spacing:0.5px; padding-bottom:6px; border-bottom:2px solid #e5e7eb; }
+.bp-table { font-size:0.8rem; margin-bottom:0; }
+.bp-table thead th { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:#9ca3af; letter-spacing:0.4px; border-bottom:2px solid #e5e7eb; padding:6px 8px; white-space:nowrap; }
+.bp-table tbody td { padding:10px 8px; vertical-align:middle; border-color:#f3f4f6; }
+.bp-table tbody tr:last-child td { border-bottom:none; }
 
 /* Billing-type context banners */
 .bs-context-banner { padding:8px 12px; border-radius:6px; font-size:0.78rem; margin-bottom:12px; }
@@ -1452,92 +1476,87 @@ function renderBillingPeriods(periods) {
     const delStatusColors = { pending:'secondary', ready_to_bill:'warning', invoiced:'primary', paid:'success' };
     const billingType     = document.getElementById('bs_billing_type')?.value || 'fixed';
     const isDataDriven    = !['fixed', 'retainer'].includes(billingType);
+    const basisLabel      = billingType === 'per_deliverable' ? 'Deliverable' : 'Basis';
 
-    const periodHeader = billingType === 'per_deliverable' ? 'Deliverable' : 'Fee Basis';
+    const fmtDate = d => {
+        if (!d) return '';
+        const dt = new Date((d + '').substring(0, 10) + 'T00:00:00');
+        return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    };
 
-    let html = `<div class="billing-period-row header">
-        <div>Period</div><div>${esc(periodHeader)}</div>
-        <div>Fees</div><div>Expenses</div><div>Total</div>
-        <div>Status</div><div>Invoice #</div><div></div>
-    </div>`;
-
+    let rows = '';
     periods.forEach(p => {
         const color  = statusColors[p.status] || 'secondary';
         const locked = p.is_locked ? '🔒 ' : '';
         const ctx    = p.context || {};
+        const total  = (p.fees_amount || 0) + (p.expenses_amount || 0);
+        const expAmt = p.expenses_amount || 0;
 
-        // ── Fee basis context cell ──────────────────────────────────────────
+        // ── Fee basis cell ──────────────────────────────────────────────────
         let basisHtml = '';
         if (billingType === 'time_and_material') {
-            if (ctx.hours_logged > 0) {
-                basisHtml = `<span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>${ctx.hours_logged} hrs logged</span>`;
-            } else {
-                basisHtml = `<span class="text-muted" style="font-size:0.75rem;"><i class="bi bi-clock me-1"></i>No hours logged</span>`;
-            }
+            basisHtml = (ctx.hours_logged > 0)
+                ? `<span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>${ctx.hours_logged} hrs</span>`
+                : `<span class="text-muted" style="font-size:0.75rem;"><i class="bi bi-clock me-1"></i>No hours logged</span>`;
         } else if (billingType === 'per_deliverable') {
             if (ctx.deliverable_name) {
                 const dColor = delStatusColors[ctx.deliverable_status] || 'secondary';
-                const dLabel = (ctx.deliverable_status || 'pending').replace(/_/g, ' ');
-                basisHtml = `<div style="font-size:0.73rem; font-weight:500; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(ctx.deliverable_name)}</div>
-                    <span class="badge bg-${dColor}">${esc(dLabel)}</span>`;
+                const dLabel = (ctx.deliverable_status || 'pending').replace(/_/g,' ');
+                basisHtml = `<div style="font-size:0.77rem; font-weight:500; color:#374151;">${esc(ctx.deliverable_name)}</div>
+                    <span class="badge bg-${dColor}" style="font-size:0.65rem;">${esc(dLabel)}</span>`;
             } else {
-                basisHtml = `<span class="text-muted" style="font-size:0.73rem;">No deliverable</span>`;
+                basisHtml = `<span class="text-muted">—</span>`;
             }
         } else if (billingType === 'hybrid') {
-            if (ctx.hours_logged > 0) {
-                basisHtml = `<span class="badge bg-light text-dark border me-1"><i class="bi bi-clock me-1"></i>${ctx.hours_logged} hrs</span>
-                    <span class="badge bg-light text-dark border">+ deliverables</span>`;
-            } else {
-                basisHtml = `<span class="text-muted" style="font-size:0.73rem;">T&M + Deliverables</span>`;
-            }
+            basisHtml = (ctx.hours_logged > 0)
+                ? `<span class="badge bg-light text-dark border"><i class="bi bi-clock me-1"></i>${ctx.hours_logged} hrs + deliverables</span>`
+                : `<span class="text-muted" style="font-size:0.75rem;">T&M + deliverables</span>`;
         } else {
-            // fixed / retainer
-            if (ctx.period_count > 1) {
-                basisHtml = `<span class="text-muted" style="font-size:0.7rem;">Period ${ctx.period_index} of ${ctx.period_count}</span>`;
-            } else {
-                basisHtml = `<span class="text-muted" style="font-size:0.7rem;">Auto-split</span>`;
-            }
+            basisHtml = ctx.period_count > 1
+                ? `<span class="text-muted" style="font-size:0.72rem;">Period ${ctx.period_index} of ${ctx.period_count}</span>`
+                : `<span class="text-muted" style="font-size:0.72rem;">Fixed split</span>`;
         }
 
-        // ── Compute button (data-driven types only) ─────────────────────────
+        // ── Amount cell ─────────────────────────────────────────────────────
         const computeBtn = (isDataDriven && !p.is_locked)
-            ? `<button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb; vertical-align:middle;"
-                   onclick="openPeriodBreakdown(${p.id})" title="View breakdown &amp; compute fees"><i class="bi bi-calculator"></i></button>`
+            ? `<button class="btn btn-link p-0 ms-1" style="font-size:0.65rem; color:#2563eb;"
+                   onclick="openPeriodBreakdown(${p.id})" title="View breakdown"><i class="bi bi-calculator"></i></button>`
+            : '';
+        const amountHtml = (isDataDriven && total === 0)
+            ? `<span class="text-muted period-total-val">$0.00</span>`
+            : `<strong class="period-total-val">$${fmtMoney(total)}</strong>`;
+        const expLine = expAmt > 0
+            ? `<div style="font-size:0.68rem; color:#9ca3af;">incl. $${fmtMoney(expAmt)} exp.</div>`
             : '';
 
-        // ── Invoice / action button ─────────────────────────────────────────
-        let actionBtn = '';
+        // ── Action buttons ──────────────────────────────────────────────────
+        let invoiceBtn = '';
         if (p.invoice_id && p.invoice_url) {
-            actionBtn = `<a href="${p.invoice_url}" class="btn btn-outline-success" style="font-size:0.68rem; padding:2px 7px;"><i class="bi bi-eye me-1"></i>${esc(p.invoice_number)}</a>`;
+            invoiceBtn = `<a href="${p.invoice_url}" class="btn btn-xs btn-outline-success" style="font-size:0.7rem; padding:3px 8px;"><i class="bi bi-eye me-1"></i>${esc(p.invoice_number)}</a>`;
         } else {
-            actionBtn = `<button class="btn btn-outline-primary" style="font-size:0.68rem; padding:2px 7px;" onclick="generateInvoiceFromPeriod(${p.id}, this)"><i class="bi bi-receipt me-1"></i>Invoice</button>`;
+            invoiceBtn = `<button class="btn btn-xs btn-outline-primary" style="font-size:0.7rem; padding:3px 8px;" onclick="generateInvoiceFromPeriod(${p.id}, this)"><i class="bi bi-receipt me-1"></i>Invoice</button>`;
         }
+        const deleteBtn = !p.is_locked
+            ? `<button class="btn btn-link btn-sm p-0 ms-2 text-danger" onclick="deletePeriod(${p.id})" title="Delete"><i class="bi bi-trash" style="font-size:0.8rem;"></i></button>`
+            : '';
 
-        // Format date range nicely
-        const pStart = p.period_start ? p.period_start.substring(0, 10) : '';
-        const pEnd   = p.period_end   ? p.period_end.substring(0, 10)   : '';
-        const fmtDate = d => {
-            if (!d) return '';
-            const dt = new Date(d + 'T00:00:00');
-            return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-        };
-
-        html += `<div class="billing-period-row" id="bpr-${p.id}">
-            <div style="font-size:0.78rem; font-weight:600;">${fmtDate(pStart)} – ${fmtDate(pEnd)}</div>
-            <div style="font-size:0.75rem;">${basisHtml}</div>
-            <div><span class="period-fee-val">$${fmtMoney(p.fees_amount)}</span>${computeBtn}</div>
-            <div>$${fmtMoney(p.expenses_amount)}</div>
-            <div><strong class="period-total-val">$${fmtMoney(p.total_amount)}</strong></div>
-            <div><span class="badge bg-${color}">${locked}${p.status}</span></div>
-            <div style="font-size:0.75rem; color:#6b7280;">${p.invoice_number ?? '—'}</div>
-            <div class="d-flex align-items-center gap-1">
-                ${actionBtn}
-                ${!p.is_locked ? `<button class="btn btn-link btn-sm p-0 text-danger" onclick="deletePeriod(${p.id})"><i class="bi bi-trash" style="font-size:0.75rem;"></i></button>` : ''}
-            </div>
-        </div>`;
+        rows += `<tr id="bpr-${p.id}">
+            <td style="white-space:nowrap; font-weight:600; font-size:0.8rem;">${fmtDate(p.period_start)} – ${fmtDate(p.period_end)}</td>
+            <td style="font-size:0.78rem; color:#6b7280;">${basisHtml}</td>
+            <td class="text-end" style="white-space:nowrap;">${amountHtml}${computeBtn}${expLine}</td>
+            <td style="white-space:nowrap;"><span class="badge bg-${color}">${locked}${p.status.charAt(0).toUpperCase()+p.status.slice(1)}</span></td>
+            <td class="text-end" style="white-space:nowrap;">${invoiceBtn}${deleteBtn}</td>
+        </tr>`;
     });
 
-    container.innerHTML = html;
+    container.innerHTML = `<div class="table-responsive"><table class="table table-sm bp-table">
+        <thead><tr>
+            <th>Period</th><th>${esc(basisLabel)}</th>
+            <th class="text-end">Amount Billed</th>
+            <th>Status</th><th class="text-end">Actions</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table></div>`;
 }
 
 /**
