@@ -36,6 +36,9 @@ $billingTypeBadges = [
         <div class="kore-card p-0">
             <div class="d-flex align-items-center justify-content-between px-3 py-2" style="border-bottom:1px solid #f3f4f6;">
                 <span class="fw-600" style="font-size:0.82rem;">Templates ({{ $templates->count() }})</span>
+                <a href="{{ route('admin.templates.import.form') }}" class="btn btn-xs btn-outline-success" style="font-size:0.72rem; padding:3px 10px;">
+                    <i class="bi bi-file-earmark-arrow-up me-1"></i>Import from Excel / Sheets
+                </a>
             </div>
             @forelse($templates as $tpl)
             <div class="d-flex align-items-center gap-2 px-3 py-2" style="border-bottom:1px solid #f9fafb;">

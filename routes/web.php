@@ -26,6 +26,7 @@ use App\Http\Controllers\ProjectNoteController;
 use App\Http\Controllers\ProjectTypeController;
 use App\Http\Controllers\ProjectStatusController;
 use App\Http\Controllers\ActivityTemplateAdminController;
+use App\Http\Controllers\ActivityTemplateImportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -214,6 +215,9 @@ Route::middleware(['auth.kore'])->group(function () {
         Route::post('/system-settings',         [AdminController::class, 'saveSystemSettings'])->name('system-settings.save');
         Route::get('/activity-log',             [AdminController::class, 'activityLog'])->name('activity-log');
         Route::get('/templates',                                            [ActivityTemplateAdminController::class, 'index'])->name('templates');
+        Route::get('/templates/import/form',                               [ActivityTemplateImportController::class, 'form'])->name('templates.import.form');
+        Route::post('/templates/import',                                   [ActivityTemplateImportController::class, 'import'])->name('templates.import');
+        Route::get('/templates/import/sample',                             [ActivityTemplateImportController::class, 'sample'])->name('templates.import.sample');
         Route::post('/templates',                                           [ActivityTemplateAdminController::class, 'store'])->name('templates.store');
         Route::get('/templates/{activityTemplate}',                         [ActivityTemplateAdminController::class, 'show'])->name('templates.show');
         Route::put('/templates/{activityTemplate}',                         [ActivityTemplateAdminController::class, 'update'])->name('templates.update');
