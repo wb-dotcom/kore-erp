@@ -16,9 +16,11 @@ use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskDependency;
 use App\Models\User;
+use App\Http\Controllers\ActivityTemplateImportController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProjectController extends Controller
 {
@@ -635,6 +637,180 @@ class ProjectController extends Controller
         ActivityLog::record('Applied template to project', 'projects', $project->id, $template->name);
 
         return back()->with('success', "Template \"{$template->name}\" applied — {$template->deliverables->count()} deliverables added.");
+    }
+
+    // ─── Import deliverables from Excel / CSV ─────────────────────────────────
+
+    public function importDeliverables(Request $request, Project $project): RedirectResponse
+    {
+        $request->validate([
+            'file'       => 'required|file|mimes:xlsx,xls,csv|max:10240',
+            'start_date' => 'nullable|date',
+        ]);
+
+        try {
+            $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
+        } catch (\Exception $e) {
+            return back()->withErrors(['import_file' => 'Could not read the file. Make sure it is a valid Excel or CSV file.']);
+        }
+
+        // Prefer a sheet named "Project Plan", fall back to active sheet
+        $sheet = null;
+        foreach ($spreadsheet->getAllSheets() as $s) {
+            if (strtolower(trim($s->getTitle())) === 'project plan') {
+                $sheet = $s;
+                break;
+            }
+        }
+        $sheet = $sheet ?? $spreadsheet->getActiveSheet();
+
+        $rawRows = $sheet->toArray(null, true, true, false); // 0-indexed columns
+        if (count($rawRows) < 2) {
+            return back()->withErrors(['import_file' => 'The spreadsheet appears to be empty.']);
+        }
+
+        // Parse rows: [0]=ID [1]=Type [2]=Name [3]=Desc [4]=ParentID [5]=DependsOn [6]=Hours [7]=Role [8]=StartDay [9]=EndDay
+        $parsed = [];
+        foreach (array_slice($rawRows, 1) as $row) {
+            $name = trim((string)($row[2] ?? ''));
+            if ($name === '') continue;
+
+            $type = strtoupper(trim((string)($row[1] ?? '')));
+            if (!in_array($type, ['DELIVERABLE', 'MILESTONE', 'TASK'])) continue;
+
+            $parsed[] = [
+                'uid'        => trim((string)($row[0] ?? '')),
+                'type'       => $type,
+                'name'       => $name,
+                'description'=> trim((string)($row[3] ?? '')),
+                'parent_uid' => trim((string)($row[4] ?? '')),
+                'depends_on' => array_values(array_filter(array_map('trim', explode(',', (string)($row[5] ?? ''))))),
+                'hours'      => is_numeric($row[6]) ? (float)$row[6] : 0,
+                'role'       => trim((string)($row[7] ?? '')),
+                'start_day'  => is_numeric($row[8]) ? (int)$row[8] : null,
+                'end_day'    => is_numeric($row[9]) ? (int)$row[9] : null,
+            ];
+        }
+
+        if (empty($parsed) || empty(array_filter($parsed, fn($r) => $r['type'] === 'DELIVERABLE'))) {
+            return back()->withErrors(['import_file' => 'No valid rows found. Ensure at least one DELIVERABLE row exists and the Type column contains DELIVERABLE, MILESTONE, or TASK.']);
+        }
+
+        $startDate     = $request->start_date
+            ? \Carbon\Carbon::parse($request->start_date)
+            : ($project->start_date ?? today());
+        $importedCount = 0;
+
+        try {
+            \DB::transaction(function () use ($project, $parsed, $startDate, &$importedCount) {
+                $deliverableMap = [];
+                $milestoneMap   = [];
+                $taskMap        = [];
+
+                $delSort  = (int)$project->deliverables()->max('sort_order') + 1;
+                $actSort  = [];
+                $taskSort = [];
+
+                // ── Pass 1: create all records ────────────────────────────────
+                foreach ($parsed as $row) {
+
+                    if ($row['type'] === 'DELIVERABLE') {
+                        $del = $project->deliverables()->create([
+                            'name'            => $row['name'],
+                            'description'     => $row['description'] ?: null,
+                            'sort_order'      => $delSort++,
+                            'budget_hours'    => 0,
+                            'deliverable_fee' => null,
+                        ]);
+                        $deliverableMap[$row['uid']] = $del->id;
+                        $importedCount++;
+
+                    } elseif ($row['type'] === 'MILESTONE') {
+                        $parentDelId = $deliverableMap[$row['parent_uid']] ?? null;
+                        if (!$parentDelId) continue;
+
+                        $del = Deliverable::find($parentDelId);
+                        $actSort[$parentDelId] = ($actSort[$parentDelId] ?? (int)$del->milestones()->max('sort_order')) + 1;
+
+                        $ms = $del->milestones()->create([
+                            'name'         => $row['name'],
+                            'description'  => $row['description'] ?: null,
+                            'sort_order'   => $actSort[$parentDelId],
+                            'budget_hours' => $row['hours'],
+                            'start_date'   => $row['start_day'] !== null ? $startDate->copy()->addDays($row['start_day']) : null,
+                            'due_date'     => $row['end_day']   !== null ? $startDate->copy()->addDays($row['end_day'])   : null,
+                        ]);
+                        $milestoneMap[$row['uid']] = $ms->id;
+                        $importedCount++;
+
+                    } elseif ($row['type'] === 'TASK') {
+                        $parentMsId  = $milestoneMap[$row['parent_uid']] ?? null;
+                        $parentDelId = $parentMsId ? null : ($deliverableMap[$row['parent_uid']] ?? null);
+                        if (!$parentMsId && !$parentDelId) continue;
+
+                        $sortKey = $parentMsId ? "m{$parentMsId}" : "d{$parentDelId}";
+
+                        if ($parentMsId) {
+                            $ms = Milestone::find($parentMsId);
+                            $taskSort[$sortKey] = ($taskSort[$sortKey] ?? (int)$ms->tasks()->max('sort_order')) + 1;
+                            $task = $ms->tasks()->create([
+                                'name'         => $row['name'],
+                                'description'  => $row['description'] ?: null,
+                                'sort_order'   => $taskSort[$sortKey],
+                                'status'       => 'pending',
+                                'budget_hours' => $row['hours'],
+                                'start_date'   => $row['start_day'] !== null ? $startDate->copy()->addDays($row['start_day']) : null,
+                                'end_date'     => $row['end_day']   !== null ? $startDate->copy()->addDays($row['end_day'])   : null,
+                            ]);
+                        } else {
+                            $del = Deliverable::find($parentDelId);
+                            $taskSort[$sortKey] = ($taskSort[$sortKey] ?? (int)$del->directTasks()->max('sort_order')) + 1;
+                            $task = $del->directTasks()->create([
+                                'name'         => $row['name'],
+                                'description'  => $row['description'] ?: null,
+                                'sort_order'   => $taskSort[$sortKey],
+                                'status'       => 'pending',
+                                'budget_hours' => $row['hours'],
+                                'start_date'   => $row['start_day'] !== null ? $startDate->copy()->addDays($row['start_day']) : null,
+                                'end_date'     => $row['end_day']   !== null ? $startDate->copy()->addDays($row['end_day'])   : null,
+                            ]);
+                        }
+                        $taskMap[$row['uid']] = $task->id;
+                        $importedCount++;
+                    }
+                }
+
+                // ── Pass 2: wire task predecessor chains via TaskDependency ───
+                foreach ($parsed as $row) {
+                    if ($row['type'] !== 'TASK' || empty($row['depends_on']) || empty($row['uid'])) continue;
+                    $taskId = $taskMap[$row['uid']] ?? null;
+                    if (!$taskId) continue;
+
+                    foreach ($row['depends_on'] as $depUid) {
+                        $dependsOnId = $taskMap[$depUid] ?? null;
+                        if ($dependsOnId) {
+                            TaskDependency::firstOrCreate(
+                                ['task_id' => $taskId, 'depends_on_id' => $dependsOnId],
+                                ['lag_days' => 0]
+                            );
+                        }
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors(['import_file' => 'Import failed: ' . $e->getMessage()]);
+        }
+
+        ActivityLog::record('Imported deliverables from spreadsheet', 'projects', $project->id, "{$importedCount} items");
+
+        return back()->with('success', "Spreadsheet imported — {$importedCount} items added to the project.");
+    }
+
+    // ─── Download sample import spreadsheet (reuses template import sample) ──
+
+    public function importSample()
+    {
+        return (new ActivityTemplateImportController())->sample();
     }
 
     // ─── Gantt chart data ─────────────────────────────────────────────────────

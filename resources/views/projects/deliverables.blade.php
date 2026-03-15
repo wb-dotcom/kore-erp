@@ -430,6 +430,23 @@
     </div>
     @endif
 
+    {{-- Import from Spreadsheet --}}
+    <div class="sidebar-card">
+        <div class="sidebar-card-title"><i class="bi bi-file-earmark-arrow-up text-info"></i> Import from Spreadsheet</div>
+        <p style="font-size:0.73rem; color:#6b7280; margin-bottom:10px;">
+            Bulk-import deliverables, milestones &amp; tasks from an Excel or Google Sheets file.
+        </p>
+        <button type="button" class="btn btn-outline-info btn-sm w-100"
+            data-bs-toggle="modal" data-bs-target="#importDelivsModal">
+            <i class="bi bi-upload me-1"></i>Import Spreadsheet
+        </button>
+        <div class="mt-2 text-center">
+            <a href="{{ route('projects.deliverables.import.sample') }}" style="font-size:0.72rem; color:#9ca3af;">
+                <i class="bi bi-download me-1"></i>Download sample .xlsx
+            </a>
+        </div>
+    </div>
+
     {{-- Info --}}
     <div class="sidebar-card" style="font-size:0.76rem; color:#6b7280;">
         <div class="sidebar-card-title" style="color:#374151;"><i class="bi bi-info-circle"></i> Guide</div>
@@ -1013,6 +1030,163 @@ async function removeAssign(id) {
 }
 
 document.addEventListener('DOMContentLoaded', initSortable);
+</script>
+@endpush
+
+{{-- ── Import Deliverables Modal ───────────────────────────────────────── --}}
+<div class="modal fade" id="importDelivsModal" tabindex="-1" aria-labelledby="importDelivsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="importDelivsModalLabel">
+                    <i class="bi bi-file-earmark-arrow-up me-2 text-info"></i>Import from Spreadsheet
+                </h6>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+            </div>
+
+            @if($errors->has('import_file'))
+            <div class="alert alert-danger py-2 mb-0 rounded-0" style="font-size:0.78rem;">
+                {{ $errors->first('import_file') }}
+            </div>
+            @endif
+
+            <form method="POST" action="{{ route('projects.deliverables.import', $project) }}"
+                  enctype="multipart/form-data" id="importDelivsForm">
+                @csrf
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            {{-- Drop zone --}}
+                            <label class="form-label" style="font-size:0.75rem; font-weight:600; color:#374151;">
+                                Spreadsheet File <span class="text-danger">*</span>
+                                <span style="font-weight:400; color:#9ca3af;">— .xlsx, .xls, or .csv</span>
+                            </label>
+                            <div id="delvsDropZone" class="import-drop-zone" onclick="document.getElementById('delvsFileInput').click()">
+                                <i class="bi bi-cloud-arrow-up" style="font-size:1.8rem; color:#9ca3af;"></i>
+                                <div style="font-size:0.8rem; color:#6b7280; margin-top:6px;">
+                                    Drag & drop, or <span style="color:#0e7490; font-weight:600;">click to browse</span>
+                                </div>
+                                <div style="font-size:0.7rem; color:#9ca3af; margin-top:3px;">.xlsx · .xls · .csv — max 10 MB</div>
+                                <div id="delvsFileName" class="mt-1" style="font-size:0.78rem; font-weight:600; color:#374151; display:none;"></div>
+                            </div>
+                            <input type="file" id="delvsFileInput" name="file" accept=".xlsx,.xls,.csv" class="d-none" required>
+                        </div>
+
+                        <div class="col-md-4">
+                            {{-- Start date --}}
+                            <label class="form-label" style="font-size:0.75rem; font-weight:600; color:#374151;">
+                                Start Date
+                                <span style="font-weight:400; color:#9ca3af;">— for relative days</span>
+                            </label>
+                            <input type="date" name="start_date" class="form-control form-control-sm"
+                                value="{{ old('start_date', optional($project->start_date)->format('Y-m-d')) }}">
+                            <div style="font-size:0.7rem; color:#9ca3af; margin-top:4px;">
+                                Defaults to project start date ({{ optional($project->start_date)->format('M j, Y') ?? 'today' }}).
+                                Start Day &amp; End Day columns in the spreadsheet are offset from this date.
+                            </div>
+
+                            <hr style="border-color:#f3f4f6; margin:14px 0 10px;">
+
+                            {{-- Sample download --}}
+                            <a href="{{ route('projects.deliverables.import.sample') }}"
+                               class="btn btn-outline-secondary btn-sm w-100" style="font-size:0.75rem;">
+                                <i class="bi bi-download me-1"></i>Download sample .xlsx
+                            </a>
+                            <div style="font-size:0.7rem; color:#9ca3af; margin-top:5px; text-align:center;">
+                                Google Sheets: File → Download → Microsoft Excel (.xlsx)
+                            </div>
+                        </div>
+
+                        {{-- Column cheatsheet --}}
+                        <div class="col-12">
+                            <div style="background:#f9fafb; border-radius:6px; padding:10px 12px; font-size:0.71rem; color:#6b7280;">
+                                <strong style="color:#374151;">Column order (row 1 = header, skipped automatically):</strong><br>
+                                <span class="badge bg-secondary me-1 mt-1">A: ID</span>
+                                <span class="badge bg-secondary me-1 mt-1">B: Type</span>
+                                <span class="badge bg-danger me-1 mt-1">C: Name *</span>
+                                <span class="badge bg-secondary me-1 mt-1">D: Description</span>
+                                <span class="badge bg-secondary me-1 mt-1">E: Parent ID</span>
+                                <span class="badge bg-secondary me-1 mt-1">F: Depends On</span>
+                                <span class="badge bg-secondary me-1 mt-1">G: Budget Hours</span>
+                                <span class="badge bg-secondary me-1 mt-1">H: Assigned Role</span>
+                                <span class="badge bg-secondary me-1 mt-1">I: Start Day</span>
+                                <span class="badge bg-secondary me-1 mt-1">J: End Day</span>
+                                <div class="mt-2">
+                                    Type must be <code>DELIVERABLE</code>, <code>MILESTONE</code>, or <code>TASK</code>.
+                                    Parent ID links a MILESTONE to its DELIVERABLE and a TASK to its MILESTONE (or DELIVERABLE).
+                                    Depends On links tasks to predecessors (comma-separated IDs from column A).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-info text-white" id="importDelivsBtn">
+                        <i class="bi bi-upload me-1"></i>Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('styles')
+<style>
+.import-drop-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: #fafafa;
+}
+.import-drop-zone:hover, .import-drop-zone.drag-over {
+    border-color: #0e7490;
+    background: #ecfeff;
+}
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function () {
+    const dropZone  = document.getElementById('delvsDropZone');
+    const fileInput = document.getElementById('delvsFileInput');
+    const fileLabel = document.getElementById('delvsFileName');
+
+    if (!dropZone) return;
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) { fileLabel.textContent = fileInput.files[0].name; fileLabel.style.display = 'block'; }
+    });
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault(); dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files;
+            fileLabel.textContent = file.name; fileLabel.style.display = 'block';
+        }
+    });
+
+    document.getElementById('importDelivsForm').addEventListener('submit', function () {
+        const btn = document.getElementById('importDelivsBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importing…';
+    });
+
+    // Auto-open modal if there was a validation error on import_file
+    @if($errors->has('import_file'))
+    document.addEventListener('DOMContentLoaded', function () {
+        var modal = new bootstrap.Modal(document.getElementById('importDelivsModal'));
+        modal.show();
+    });
+    @endif
+}());
 </script>
 @endpush
 

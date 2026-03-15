@@ -130,6 +130,8 @@ Route::middleware(['auth.kore'])->group(function () {
     // Project-level WBS operations
     Route::post('/projects/{project}/wbs-reorder',                             [ProjectController::class, 'reorderWbs'])->name('projects.wbs.reorder');
     Route::post('/projects/{project}/apply-template',                          [ProjectController::class, 'applyTemplate'])->name('projects.apply-template');
+    Route::post('/projects/{project}/import-deliverables',                     [ProjectController::class, 'importDeliverables'])->name('projects.deliverables.import');
+    Route::get('/project-deliverables-import-sample',                          [ProjectController::class, 'importSample'])->name('projects.deliverables.import.sample');
     Route::get('/projects/{project}/gantt-data',                               [ProjectController::class, 'ganttData'])->name('projects.gantt-data');
 
     // Project Notes / Todos
